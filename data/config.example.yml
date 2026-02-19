@@ -121,10 +121,9 @@ bom:
 # =============================================================================
 # Web Search - SearXNG
 # =============================================================================
-# Local SearXNG instance for web search (started via docker-compose)
+# External SearXNG endpoint for web search.
 search:
-  # Use http://searxng:8080/search when Fulloch runs in Docker Compose.
-  searxng_url: "http://searxng:8080/search"
+  searxng_url: "http://192.168.50.153:30053"
 
 # =============================================================================
 # LG WebOS TV Control

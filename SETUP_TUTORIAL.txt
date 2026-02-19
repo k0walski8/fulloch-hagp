@@ -75,7 +75,24 @@ Run GPU:
 Health check:
 - curl http://<host>:8000/health
 
-5) Home Assistant Voice Setup
+5) Web Search Setup (External SearXNG + Optional OpenRouter)
+-------------------------------------------------------------
+In data/config.yml:
+
+search:
+  searxng_url: "http://192.168.50.153:30053"
+
+Optional .env for OpenRouter web-answer synthesis:
+- OPENROUTER_WEB_SEARCH_ENABLED=true
+- OPENROUTER_API_KEY=<your_openrouter_api_key>
+- OPENROUTER_MODEL=<openrouter_model_id>
+- OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+
+Behavior:
+- If OpenRouter vars are set and enabled, web-search answers use OpenRouter output.
+- If not enabled, Fulloch falls back to local handling with retrieved web snippets.
+
+6) Home Assistant Voice Setup
 -----------------------------
 Use Fulloch as an OpenAI-compatible backend.
 
@@ -95,7 +112,7 @@ Model IDs from config.yml (api section):
 If api.api_key is set:
 - Configure Bearer token in Home Assistant provider settings
 
-6) Fulloch Config Minimum
+7) Fulloch Config Minimum
 -------------------------
 In data/config.yml:
 
@@ -113,7 +130,7 @@ api:
   stt_model: "qwen3-asr-1.7b"
   tts_model: "qwen3-tts-1.7b"
 
-7) Troubleshooting
+8) Troubleshooting
 ------------------
 - If image pull fails: check package visibility or docker login to ghcr.io
 - If no responses: check model files in ./data/models

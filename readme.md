@@ -136,7 +136,7 @@ Server defaults to `http://0.0.0.0:8000`.
 The launch script:
 1. Downloads required models if not present
 2. Detects GPU availability
-3. Starts the API service and SearXNG search service
+3. Starts the API service
 
 ## GHCR Deployment
 
@@ -144,12 +144,12 @@ Build and push manually:
 
 ```bash
 # CPU image
-docker build -t ghcr.io/<github-user>/fulloch:latest .
-docker push ghcr.io/<github-user>/fulloch:latest
+docker build -t ghcr.io/k0walski8/fulloch-hagp:latest .
+docker push ghcr.io/k0walski8/fulloch-hagp:latest
 
 # GPU image
-docker build -f Dockerfile_gpu -t ghcr.io/<github-user>/fulloch:gpu-latest .
-docker push ghcr.io/<github-user>/fulloch:gpu-latest
+docker build -f Dockerfile_gpu -t ghcr.io/k0walski8/fulloch-hagp:gpu-latest .
+docker push ghcr.io/k0walski8/fulloch-hagp:gpu-latest
 ```
 
 ## Configuration
@@ -233,6 +233,21 @@ bom:
   default: "Sydney"          # Default location for weather
 ```
 
+### Web Search (External SearXNG + Optional OpenRouter)
+
+```yaml
+search:
+  searxng_url: "http://192.168.50.153:30053"
+```
+
+Optional `.env` values for OpenRouter web-answer synthesis:
+
+```bash
+OPENROUTER_WEB_SEARCH_ENABLED=true
+OPENROUTER_API_KEY=your_openrouter_api_key
+OPENROUTER_MODEL=google/gemini-2.0-flash-001
+```
+
 ### Home Assistant
 
 You can use Fulloch as the backend for Home Assistant Voice via OpenAI-compatible integrations.
@@ -271,7 +286,7 @@ See `data/config.example.yml` for all available integrations:
 - WebOS TV control
 - Pioneer/Onkyo AVR
 - Airtouch HVAC
-- SearXNG web search
+- External SearXNG web search
 
 ## Example Prompts
 
