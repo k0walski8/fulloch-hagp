@@ -4,6 +4,7 @@ FROM pytorch/pytorch:2.8.0-cuda12.8-cudnn9-devel AS builder
 ENV DEBIAN_FRONTEND=noninteractive
 ENV CMAKE_ARGS="-DGGML_CUDA=on"
 ENV FORCE_CMAKE=1
+ENV PIP_PREFER_BINARY=1
 
 RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 

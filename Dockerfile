@@ -4,9 +4,14 @@ WORKDIR /app
 
 ENV HF_HOME=/app/data/models
 ENV HF_HUB_OFFLINE=1
+ENV PIP_PREFER_BINARY=1
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    pkg-config \
+    python3-dev \
     sox \
     libsox-dev \
     libsox-fmt-all \
