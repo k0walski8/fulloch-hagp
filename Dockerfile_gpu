@@ -5,6 +5,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV CMAKE_ARGS="-DGGML_CUDA=on"
 ENV FORCE_CMAKE=1
 ENV PIP_PREFER_BINARY=1
+ARG INSTALL_FLASH_ATTN=false
 
 RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 
@@ -14,8 +15,12 @@ RUN pip install --no-cache-dir -r /tmp/requirements.txt && \
      echo "Warning: Some optional integration dependencies failed to install") && \
     (pip install --no-deps git+https://github.com/rekuenkdr/Qwen3-TTS-streaming.git || \
      echo "Warning: Optional Qwen3-TTS install failed; use FULLOCH_USE_TINY_TTS=true") && \
-    (pip install flash-attn --no-build-isolation || \
-     echo "Warning: Optional flash-attn install failed; use tiny ASR/TTS modes if needed")
+    if [ "$INSTALL_FLASH_ATTN" = "true" ]; then \
+      (pip install flash-attn --no-build-isolation || \
+       echo "Warning: Optional flash-attn install failed; use tiny ASR/TTS modes if needed"); \
+    else \
+      echo "Skipping optional flash-attn install (INSTALL_FLASH_ATTN=false)"; \
+    fi
 
 # Stage 2: Runtime (no CUDA compilers/headers)
 FROM pytorch/pytorch:2.8.0-cuda12.8-cudnn9-runtime
