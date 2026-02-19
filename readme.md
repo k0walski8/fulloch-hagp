@@ -264,6 +264,16 @@ HOME_ASSISTANT_TOKEN=your_long_lived_token
 HOME_ASSISTANT_ENTITY_ALIASES={\"living room lights\":\"light.living_room\",\"front door\":\"lock.front_door\"}
 ```
 
+Music Assistant speaker playback compatibility (Home Assistant Music Assistant):
+
+```bash
+ENABLE_MUSIC_ASSISTANT=true
+MUSIC_ASSISTANT_DEFAULT_PLAYER=media_player.living_room
+MUSIC_ASSISTANT_PLAYER_ALIASES={\"kitchen speaker\":\"media_player.kitchen\"}
+```
+
+With `ENABLE_MUSIC_ASSISTANT=true`, Fulloch registers `play_song`, `pause`, and `resume` tools that control HA speakers.
+
 **Important**: The Home Assistant integration is **disabled by default**. When enabled, it registers generic tool names like `turn_on`, `turn_off`, and `toggle` which may conflict with other integrations (e.g., Philips Hue lighting tools). Only enable this if you want Home Assistant to be your primary home automation controller.
 
 If you use both Home Assistant and direct integrations (like Philips Hue), keep `ENABLE_HOME_ASSISTANT=false` and use the direct integrations instead.
@@ -321,7 +331,7 @@ fulloch/
 
 - Check `http://<fulloch-host>:8000/health` from the Home Assistant host
 - Verify `api.port` and Docker port mapping
-- If `api.api_key` is set, verify bearer token in Home Assistant settings
+- If `FULLOCH_API_KEY` is set, verify bearer token in Home Assistant settings
 
 ### Model loading fails
 

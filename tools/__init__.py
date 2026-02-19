@@ -36,7 +36,11 @@ for module_name in _ALWAYS_LOAD:
         logger.error("Failed to load tool %s: %s", module_name, exc)
 
 for module_name, (env_var, default_enabled) in _TOOL_ENV_MAP.items():
-    if env_bool(env_var, default_enabled):
+    enabled = env_bool(env_var, default_enabled)
+    if module_name == "home_assistant":
+        enabled = enabled or env_bool("ENABLE_MUSIC_ASSISTANT", False)
+
+    if enabled:
         try:
             importlib.import_module(f".{module_name}", package=__name__)
             logger.info("Loaded tool: %s (%s=true)", module_name, env_var)

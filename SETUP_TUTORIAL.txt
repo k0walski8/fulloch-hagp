@@ -96,6 +96,11 @@ Optional Home Assistant tool integration:
 - HOME_ASSISTANT_TOKEN=<ha_long_lived_token>
 - HOME_ASSISTANT_ENTITY_ALIASES={"living room lights":"light.living_room"}
 
+Music Assistant speaker playback compatibility:
+- ENABLE_MUSIC_ASSISTANT=true
+- MUSIC_ASSISTANT_DEFAULT_PLAYER=media_player.living_room
+- MUSIC_ASSISTANT_PLAYER_ALIASES={"kitchen speaker":"media_player.kitchen"}
+
 8) Optional Tool Flags
 ----------------------
 Enable integrations as needed:

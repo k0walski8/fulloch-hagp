@@ -5,7 +5,7 @@ from typing import Optional
 
 import requests
 
-from utils.env_config import env_int, env_json_dict, env_str
+from utils.env_config import env_bool, env_int, env_json_dict, env_str
 
 from .tool_registry import tool
 
@@ -17,6 +17,15 @@ HA_ALIASES = {
     str(k).lower(): str(v)
     for k, v in env_json_dict("HOME_ASSISTANT_ENTITY_ALIASES", {}).items()
 }
+MUSIC_ASSISTANT_ENABLED = env_bool("ENABLE_MUSIC_ASSISTANT", False)
+MUSIC_ASSISTANT_DEFAULT_PLAYER = env_str("MUSIC_ASSISTANT_DEFAULT_PLAYER", "")
+MUSIC_ASSISTANT_PLAYER_ALIASES = {
+    str(k).lower(): str(v)
+    for k, v in env_json_dict("MUSIC_ASSISTANT_PLAYER_ALIASES", {}).items()
+}
+MUSIC_ASSISTANT_PLAY_DOMAIN = env_str("MUSIC_ASSISTANT_PLAY_DOMAIN", "music_assistant")
+MUSIC_ASSISTANT_PLAY_SERVICE = env_str("MUSIC_ASSISTANT_PLAY_SERVICE", "play_media")
+MUSIC_ASSISTANT_ENQUEUE = env_str("MUSIC_ASSISTANT_ENQUEUE", "replace")
 
 
 def _get_headers() -> dict:
@@ -387,3 +396,102 @@ def activate_scene(scene_name: str) -> str:
     """
     entity_id = _resolve_entity(scene_name, domain="scene")
     return _call_service("scene", "turn_on", entity_id)
+
+
+def _resolve_music_player(player: Optional[str] = None) -> str:
+    """Resolve a Music Assistant player/speaker entity."""
+    selected = (player or "").strip()
+
+    if selected and selected.lower() in MUSIC_ASSISTANT_PLAYER_ALIASES:
+        return MUSIC_ASSISTANT_PLAYER_ALIASES[selected.lower()]
+
+    if selected:
+        return _resolve_entity(selected, domain="media_player")
+
+    if MUSIC_ASSISTANT_DEFAULT_PLAYER:
+        if MUSIC_ASSISTANT_DEFAULT_PLAYER.lower() in MUSIC_ASSISTANT_PLAYER_ALIASES:
+            return MUSIC_ASSISTANT_PLAYER_ALIASES[MUSIC_ASSISTANT_DEFAULT_PLAYER.lower()]
+        return _resolve_entity(MUSIC_ASSISTANT_DEFAULT_PLAYER, domain="media_player")
+
+    return ""
+
+
+def _music_assistant_enabled_error() -> str:
+    return "Music Assistant integration is disabled. Set ENABLE_MUSIC_ASSISTANT=true."
+
+
+def _music_assistant_play(query: str, player: Optional[str] = None) -> str:
+    """Play media on a Music Assistant speaker through Home Assistant services."""
+    if not MUSIC_ASSISTANT_ENABLED:
+        return _music_assistant_enabled_error()
+
+    entity_id = _resolve_music_player(player)
+    if not entity_id:
+        return "No speaker configured. Set MUSIC_ASSISTANT_DEFAULT_PLAYER or provide a speaker."
+
+    data = {"media_id": query}
+    if MUSIC_ASSISTANT_ENQUEUE:
+        data["enqueue"] = MUSIC_ASSISTANT_ENQUEUE
+
+    response = _call_service(MUSIC_ASSISTANT_PLAY_DOMAIN, MUSIC_ASSISTANT_PLAY_SERVICE, entity_id, data)
+    if not response.startswith("Error:"):
+        return f"Playing '{query}' on {entity_id}"
+
+    # Fallback to standard media_player service
+    fallback = _call_service(
+        "media_player",
+        "play_media",
+        entity_id,
+        {
+            "media_content_type": "music",
+            "media_content_id": query,
+        },
+    )
+    if fallback.startswith("Error:"):
+        return fallback
+    return f"Playing '{query}' on {entity_id}"
+
+
+if MUSIC_ASSISTANT_ENABLED:
+    @tool(
+        name="play_song",
+        description="Play music on Home Assistant Music Assistant speakers",
+        aliases=["play_music", "music_assistant_play", "ma_play_song"],
+    )
+    def play_song(artist_query: Optional[str] = None, song: Optional[str] = None, speaker: Optional[str] = None) -> str:
+        """Play music on Music Assistant speaker by query/song."""
+        if song and artist_query:
+            query = f"{song} by {artist_query}"
+        else:
+            query = (artist_query or song or "").strip()
+
+        if not query:
+            return "Please provide a song, artist, or query to play."
+
+        return _music_assistant_play(query=query, player=speaker)
+
+
+    @tool(
+        name="pause",
+        description="Pause playback on Home Assistant Music Assistant speakers",
+        aliases=["pause_music", "ma_pause", "stop"],
+    )
+    def pause_music(speaker: Optional[str] = None) -> str:
+        """Pause playback on Music Assistant speaker."""
+        entity_id = _resolve_music_player(speaker)
+        if not entity_id:
+            return "No speaker configured. Set MUSIC_ASSISTANT_DEFAULT_PLAYER or provide a speaker."
+        return _call_service("media_player", "media_pause", entity_id)
+
+
+    @tool(
+        name="resume",
+        description="Resume playback on Home Assistant Music Assistant speakers",
+        aliases=["resume_music", "ma_resume", "unpause"],
+    )
+    def resume_music(speaker: Optional[str] = None) -> str:
+        """Resume playback on Music Assistant speaker."""
+        entity_id = _resolve_music_player(speaker)
+        if not entity_id:
+            return "No speaker configured. Set MUSIC_ASSISTANT_DEFAULT_PLAYER or provide a speaker."
+        return _call_service("media_player", "media_play", entity_id)
