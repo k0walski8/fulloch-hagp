@@ -11,8 +11,76 @@ services:
     volumes:
       - ./data:/app/data:rw
     environment:
-      - FULLOCH_HOST=0.0.0.0
-      - FULLOCH_PORT=8000
+      # Core Runtime
+      - FULLOCH_USE_AI=${FULLOCH_USE_AI:-true}
+      - FULLOCH_USE_TINY_ASR=${FULLOCH_USE_TINY_ASR:-false}
+      - FULLOCH_USE_TINY_TTS=${FULLOCH_USE_TINY_TTS:-false}
+      - FULLOCH_VOICE_CLONE=${FULLOCH_VOICE_CLONE:-cori}
+      # API Server
+      - FULLOCH_HOST=${FULLOCH_HOST:-0.0.0.0}
+      - FULLOCH_PORT=${FULLOCH_PORT:-8000}
+      - FULLOCH_LOG_LEVEL=${FULLOCH_LOG_LEVEL:-info}
+      - FULLOCH_API_KEY=${FULLOCH_API_KEY:-}
+      - FULLOCH_CHAT_MODEL=${FULLOCH_CHAT_MODEL:-fulloch-qwen3-slm}
+      - FULLOCH_STT_MODEL=${FULLOCH_STT_MODEL:-qwen3-asr-1.7b}
+      - FULLOCH_TTS_MODEL=${FULLOCH_TTS_MODEL:-qwen3-tts-1.7b}
+      # Tool Enablement
+      - ENABLE_WEATHER_TIME=${ENABLE_WEATHER_TIME:-true}
+      - ENABLE_SEARCH_WEB=${ENABLE_SEARCH_WEB:-true}
+      - ENABLE_HOME_ASSISTANT=${ENABLE_HOME_ASSISTANT:-false}
+      - ENABLE_MUSIC_ASSISTANT=${ENABLE_MUSIC_ASSISTANT:-false}
+      - ENABLE_SPOTIFY=${ENABLE_SPOTIFY:-false}
+      - ENABLE_PHILIPS_HUE=${ENABLE_PHILIPS_HUE:-false}
+      - ENABLE_GOOGLE_CALENDAR=${ENABLE_GOOGLE_CALENDAR:-false}
+      - ENABLE_AIRTOUCH=${ENABLE_AIRTOUCH:-false}
+      - ENABLE_THINQ=${ENABLE_THINQ:-false}
+      - ENABLE_WEBOS=${ENABLE_WEBOS:-false}
+      - ENABLE_PIONEER_AVR=${ENABLE_PIONEER_AVR:-false}
+      # Home Assistant
+      - HOME_ASSISTANT_URL=${HOME_ASSISTANT_URL:-http://localhost:8123}
+      - HOME_ASSISTANT_TOKEN=${HOME_ASSISTANT_TOKEN:-}
+      - HOME_ASSISTANT_TIMEOUT=${HOME_ASSISTANT_TIMEOUT:-10}
+      - HOME_ASSISTANT_ENTITY_ALIASES=${HOME_ASSISTANT_ENTITY_ALIASES:-}
+      # Home Assistant Music Assistant
+      - MUSIC_ASSISTANT_DEFAULT_PLAYER=${MUSIC_ASSISTANT_DEFAULT_PLAYER:-}
+      - MUSIC_ASSISTANT_PLAYER_ALIASES=${MUSIC_ASSISTANT_PLAYER_ALIASES:-}
+      - MUSIC_ASSISTANT_PLAY_DOMAIN=${MUSIC_ASSISTANT_PLAY_DOMAIN:-music_assistant}
+      - MUSIC_ASSISTANT_PLAY_SERVICE=${MUSIC_ASSISTANT_PLAY_SERVICE:-play_media}
+      - MUSIC_ASSISTANT_ENQUEUE=${MUSIC_ASSISTANT_ENQUEUE:-replace}
+      # Web Search
+      - SEARCH_SEARXNG_URL=${SEARCH_SEARXNG_URL:-http://192.168.50.153:30053}
+      - OPENROUTER_WEB_SEARCH_ENABLED=${OPENROUTER_WEB_SEARCH_ENABLED:-false}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - OPENROUTER_MODEL=${OPENROUTER_MODEL:-}
+      - OPENROUTER_BASE_URL=${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+      # Weather (BOM)
+      - BOM_HOST=${BOM_HOST:-ftp.bom.gov.au}
+      - BOM_PATH=${BOM_PATH:-/anon/gen/fwo/IDN11060.xml}
+      - BOM_DEFAULT_LOCATION=${BOM_DEFAULT_LOCATION:-Sydney}
+      # Spotify
+      - SPOTIPY_CLIENT_ID=${SPOTIPY_CLIENT_ID:-}
+      - SPOTIPY_CLIENT_SECRET=${SPOTIPY_CLIENT_SECRET:-}
+      - SPOTIPY_REDIRECT_URI=${SPOTIPY_REDIRECT_URI:-http://localhost:8888/callback}
+      - SPOTIFY_DEVICE_ID=${SPOTIFY_DEVICE_ID:-}
+      - SPOTIFY_USE_AVR=${SPOTIFY_USE_AVR:-false}
+      # Philips Hue
+      - PHILIPS_HUE_HUB_IP=${PHILIPS_HUE_HUB_IP:-}
+      - PHILIPS_HUE_CONFIG_PATH=${PHILIPS_HUE_CONFIG_PATH:-./data/.python_hue}
+      # Pioneer AVR
+      - PIONEER_AVR_HOST=${PIONEER_AVR_HOST:-}
+      - PIONEER_AVR_PORT=${PIONEER_AVR_PORT:-60128}
+      # LG WebOS
+      - WEBOS_TV_IP=${WEBOS_TV_IP:-}
+      - WEBOS_TV_MAC=${WEBOS_TV_MAC:-}
+      # LG ThinQ
+      - THINQ_ACCESS_TOKEN=${THINQ_ACCESS_TOKEN:-}
+      - THINQ_COUNTRY_CODE=${THINQ_COUNTRY_CODE:-AU}
+      - THINQ_CLIENT_ID=${THINQ_CLIENT_ID:-}
+      # Google Calendar
+      - GOOGLE_CREDENTIALS_FILE=${GOOGLE_CREDENTIALS_FILE:-./data/credentials.json}
+      - GOOGLE_TOKEN_FILE=${GOOGLE_TOKEN_FILE:-./data/token.json}
+      # Airtouch HVAC
+      - AIRTOUCH_ZONE_IDS=${AIRTOUCH_ZONE_IDS:-}
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)\" || exit 1"]
       interval: 30s
