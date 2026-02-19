@@ -1,39 +1,55 @@
-"""
-Core package for Fulloch voice assistant.
-
-This package contains the core components:
-- audio: Audio capture and silence detection
-- asr: Automatic speech recognition
-- tts: Text-to-speech synthesis
-- slm: Small language model inference
-- assistant: Main orchestration and wakeword detection
-"""
-
-from .audio import (
-    AudioCapture,
-    is_silent,
-    SAMPLE_RATE,
-    SILENCE_THRESHOLD,
-)
-from .asr import load_asr_model, stream_generator
-from .tts import speak_stream
-from .slm import load_slm, generate_slm
-from .assistant import Assistant
+"""Core package for Fulloch."""
 
 __all__ = [
-    # Audio
+    "Assistant",
     "AudioCapture",
-    "is_silent",
     "SAMPLE_RATE",
     "SILENCE_THRESHOLD",
-    # ASR
-    "load_asr_model",
-    "stream_generator",
-    # TTS
-    "speak_stream",
-    # SLM
-    "load_slm",
     "generate_slm",
-    # Assistant
-    "Assistant",
+    "is_silent",
+    "load_asr_model",
+    "load_slm",
+    "speak_stream",
+    "stream_generator",
 ]
+
+
+def __getattr__(name):
+    """Lazily import core modules to avoid heavy startup side effects."""
+    if name in {"AudioCapture", "is_silent", "SAMPLE_RATE", "SILENCE_THRESHOLD"}:
+        from .audio import AudioCapture, SAMPLE_RATE, SILENCE_THRESHOLD, is_silent
+
+        mapping = {
+            "AudioCapture": AudioCapture,
+            "is_silent": is_silent,
+            "SAMPLE_RATE": SAMPLE_RATE,
+            "SILENCE_THRESHOLD": SILENCE_THRESHOLD,
+        }
+        return mapping[name]
+
+    if name in {"load_asr_model", "stream_generator"}:
+        from .asr import load_asr_model, stream_generator
+
+        mapping = {
+            "load_asr_model": load_asr_model,
+            "stream_generator": stream_generator,
+        }
+        return mapping[name]
+
+    if name in {"load_slm", "generate_slm"}:
+        from .slm import generate_slm, load_slm
+
+        mapping = {"load_slm": load_slm, "generate_slm": generate_slm}
+        return mapping[name]
+
+    if name == "speak_stream":
+        from .tts import speak_stream
+
+        return speak_stream
+
+    if name == "Assistant":
+        from .assistant import Assistant
+
+        return Assistant
+
+    raise AttributeError(f"module 'core' has no attribute '{name}'")

@@ -6,7 +6,7 @@ detection and conversational AI.
 """
 
 import logging
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 import torch
 from llama_cpp import Llama, LlamaGrammar
@@ -63,6 +63,7 @@ def load_slm(
 def generate_slm(
     slm_model,
     user_prompt: str,
+    messages: Optional[List[Dict[str, Any]]] = None,
     grammar: Optional[LlamaGrammar] = None,
     system_prompt: Optional[str] = None,
     max_new_tokens: int = N_CONTEXT,
@@ -85,13 +86,23 @@ def generate_slm(
     # Reset before each call to avoid buffer cache issues
     slm_model.reset()
 
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_prompt}
-    ]
+    if messages:
+        prepared_messages = [
+            {"role": msg.get("role", "user"), "content": str(msg.get("content", ""))}
+            for msg in messages
+            if str(msg.get("content", "")).strip()
+        ]
+    else:
+        prepared_messages = []
+        if system_prompt:
+            prepared_messages.append({"role": "system", "content": system_prompt})
+        prepared_messages.append({"role": "user", "content": user_prompt})
+
+    if system_prompt and prepared_messages and prepared_messages[0]["role"] != "system":
+        prepared_messages.insert(0, {"role": "system", "content": system_prompt})
 
     stream = slm_model.create_chat_completion(
-        messages=messages,
+        messages=prepared_messages,
         max_tokens=max_new_tokens,
         grammar=grammar,
         stream=True,

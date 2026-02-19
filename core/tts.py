@@ -7,6 +7,7 @@ import logging
 import queue
 import re
 import threading
+import numpy as np
 import torch
 
 # Set precision before any CUDA operations
@@ -156,3 +157,40 @@ def speak_stream(text: str, prompt, voice: str = "cori", speed: float = 1.0):
         stream.write(first_chunk)
         while (chunk := audio_queue.get()) is not None:
             stream.write(chunk)
+
+
+def synthesize(text: str, prompt, voice: str = "cori", speed: float = 1.0):
+    """
+    Generate full waveform audio for API responses.
+
+    Args:
+        text: Text to synthesize
+        prompt: Prepared voice cloning prompt
+        voice: Not used
+        speed: Not used
+
+    Returns:
+        Tuple of (audio waveform float32 numpy array, sample_rate)
+    """
+    _ = voice, speed
+    chunks = []
+    sample_rate = 24000
+
+    for audio_chunk, sr in model.stream_generate_voice_clone(
+        text=text,
+        language="english",
+        voice_clone_prompt=prompt,
+        overlap_samples=512,
+        emit_every_frames=12,
+        decode_window_frames=80,
+        first_chunk_emit_every=5,
+        first_chunk_decode_window=48,
+        first_chunk_frames=48,
+    ):
+        sample_rate = sr
+        chunks.append(np.asarray(audio_chunk, dtype=np.float32))
+
+    if not chunks:
+        return np.zeros(1, dtype=np.float32), sample_rate
+
+    return np.concatenate(chunks).astype(np.float32), sample_rate

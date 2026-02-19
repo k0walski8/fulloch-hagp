@@ -1,0 +1,121 @@
+Fulloch HA + GHCR Setup Tutorial
+================================
+
+This project now runs as an OpenAI-compatible API for Home Assistant Voice.
+Docker Compose pulls a prebuilt GHCR image (no local Dockerfile build needed).
+
+1) GitHub Repository Setup
+--------------------------
+Repository: https://github.com/k0walski8/fulloch-hagp
+
+Required:
+- Main branch exists (main)
+- GitHub Actions enabled
+- Actions have permission to write packages
+
+Check in GitHub:
+- Settings -> Actions -> General
+  - Allow all actions and reusable workflows (or allow Docker official actions)
+- Settings -> Actions -> General -> Workflow permissions
+  - Select: Read and write permissions
+
+2) GHCR Setup
+-------------
+Image names published by workflow:
+- ghcr.io/k0walski8/fulloch-hagp:latest
+- ghcr.io/k0walski8/fulloch-hagp:gpu-latest
+
+After first publish:
+- GitHub profile -> Packages -> fulloch-hagp
+- Set visibility as needed:
+  - Public (recommended for easiest pulls)
+  - Private (requires docker login on deployment host)
+
+If private package:
+- Create GitHub PAT with scopes: read:packages
+- On deployment host:
+  docker login ghcr.io -u k0walski8
+  (use PAT as password)
+
+3) First Publish Flow
+---------------------
+Code push to main triggers:
+- .github/workflows/docker-publish.yml
+- Builds and pushes CPU + GPU images to GHCR
+
+Manual trigger option:
+- GitHub -> Actions -> Publish Docker Image -> Run workflow
+
+4) Deployment Host Setup
+------------------------
+Requirements:
+- Docker Engine
+- Docker Compose plugin
+
+Files needed on host:
+- compose.yml (CPU) or compose_gpu.yml (GPU)
+- data/config.yml
+- .env (optional)
+- data/models and data/voices mounted in ./data
+
+Compose image overrides (optional) in .env:
+- FULLOCH_IMAGE=ghcr.io/k0walski8/fulloch-hagp:latest
+- FULLOCH_GPU_IMAGE=ghcr.io/k0walski8/fulloch-hagp:gpu-latest
+- FULLOCH_PORT=8000
+- FULLOCH_API_KEY=<your_key_if_used>
+
+Run CPU:
+- docker compose -f compose.yml pull
+- docker compose -f compose.yml up -d
+
+Run GPU:
+- docker compose -f compose_gpu.yml pull
+- docker compose -f compose_gpu.yml up -d
+
+Health check:
+- curl http://<host>:8000/health
+
+5) Home Assistant Voice Setup
+-----------------------------
+Use Fulloch as an OpenAI-compatible backend.
+
+Base URL:
+- http://<fulloch-host>:8000/v1
+
+Endpoints:
+- Chat: /chat/completions
+- STT: /audio/transcriptions
+- TTS: /audio/speech
+
+Model IDs from config.yml (api section):
+- chat_model
+- stt_model
+- tts_model
+
+If api.api_key is set:
+- Configure Bearer token in Home Assistant provider settings
+
+6) Fulloch Config Minimum
+-------------------------
+In data/config.yml:
+
+general:
+  use_ai: true
+  use_tiny_asr: false
+  use_tiny_tts: false
+  voice_clone: "cori"
+
+api:
+  host: "0.0.0.0"
+  port: 8000
+  api_key: ""
+  chat_model: "fulloch-qwen3-slm"
+  stt_model: "qwen3-asr-1.7b"
+  tts_model: "qwen3-tts-1.7b"
+
+7) Troubleshooting
+------------------
+- If image pull fails: check package visibility or docker login to ghcr.io
+- If no responses: check model files in ./data/models
+- If HA cannot connect: verify port mapping and firewall
+- If auth fails: verify Bearer token matches FULLOCH_API_KEY/api.api_key

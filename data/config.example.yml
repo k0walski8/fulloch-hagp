@@ -13,17 +13,28 @@
 # General Settings
 # =============================================================================
 general:
-  # Wakeword to activate the assistant (case-insensitive)
-  # Other examples: "alexa", "jeeves", "mycroft"
-  wakeword: "computer" 
-  # Use a small language model for extra capabilities
+  # Use the Qwen 3 SLM for AI intent parsing and conversational chat.
   use_ai: True
-  # Use the Moonshine Tiny ASR for faster speech transcription (English only)
+  # Use Moonshine Tiny ASR for lower-resource deployments.
   use_tiny_asr: False
-  # Use the Kokoro TTS for faster voice streaming (voice cloning not available)
+  # Use Kokoro TTS for lower-resource deployments (voice cloning disabled).
   use_tiny_tts: False
-  # Set name of wav/txt file if using voice cloning
+  # Voice clone name (expects data/voices/<name>.wav and <name>.txt).
   voice_clone: "cori"
+
+# =============================================================================
+# API Settings
+# =============================================================================
+api:
+  # API server bind settings for OpenAI-compatible routes
+  host: "0.0.0.0"
+  port: 8000
+  # Optional bearer token. Leave empty to disable auth.
+  api_key: ""
+  # Model IDs exposed by /v1/models
+  chat_model: "fulloch-qwen3-slm"
+  stt_model: "qwen3-asr-1.7b"
+  tts_model: "qwen3-tts-1.7b"
 
 # =============================================================================
 # Spotify Integration
@@ -112,7 +123,8 @@ bom:
 # =============================================================================
 # Local SearXNG instance for web search (started via docker-compose)
 search:
-  searxng_url: "http://localhost:8080/search"
+  # Use http://searxng:8080/search when Fulloch runs in Docker Compose.
+  searxng_url: "http://searxng:8080/search"
 
 # =============================================================================
 # LG WebOS TV Control

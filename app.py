@@ -1,57 +1,70 @@
 #!/usr/bin/env python3
-"""
-Fulloch - The Fully Local Home Voice Assistant
+"""Fulloch OpenAI-compatible API server entrypoint."""
 
-A fully local, privacy-focused AI voice home assistant.
-Runs speech recognition (Moonshine ASR), text-to-speech (Kokoro TTS),
-and a small language model (Qwen 3 4B) entirely on-device.
+from __future__ import annotations
 
-Usage:
-    python app.py
-"""
-
-import os
 import logging
-import yaml
+import os
 from pathlib import Path
+from typing import Any, Dict
 
-# Suppress noisy "Setting pad_token_id to eos_token_id" from transformers
+import yaml
+from dotenv import load_dotenv
+
+# Reduce noisy transformers generation warnings
 logging.getLogger("transformers.generation.utils").setLevel(logging.ERROR)
 
-# Load configuration
-with open("./data/config.yml", "r") as f:
-    config = yaml.safe_load(f)
+load_dotenv()
 
-# Point HF cache to models folder
+
+def load_config() -> Dict[str, Any]:
+    """Load runtime configuration from config.yml or fallback example."""
+    config_path = Path(os.getenv("FULLOCH_CONFIG", "./data/config.yml"))
+    example_path = Path("./data/config.example.yml")
+
+    if config_path.exists():
+        with config_path.open("r", encoding="utf-8") as config_file:
+            return yaml.safe_load(config_file) or {}
+
+    if example_path.exists():
+        with example_path.open("r", encoding="utf-8") as example_file:
+            return yaml.safe_load(example_file) or {}
+
+    return {}
+
+
+config = load_config()
+
+# Ensure model cache points into mounted data dir
 models_dir = Path("./data/models").resolve()
-os.environ["HF_HOME"] = str(models_dir)
-
-# Set environment variables for offline mode and disabling telemetry
-os.environ["HF_HUB_OFFLINE"] = "1"
-os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
-os.environ["DO_NOT_TRACK"] = "1"
-os.environ["ANONYMIZED_TELEMETRY"] = "False"
-os.environ["VLLM_NO_USAGE_STATS"] = "1"
+os.environ.setdefault("HF_HOME", str(models_dir))
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
+os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
+os.environ.setdefault("DO_NOT_TRACK", "1")
+os.environ.setdefault("ANONYMIZED_TELEMETRY", "False")
+os.environ.setdefault("VLLM_NO_USAGE_STATS", "1")
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
-logger = logging.getLogger(__name__)
 
-from core.assistant import Assistant
+from api import create_app
 
-# Configuration
-WAKEWORD = config['general']['wakeword']
-USE_AI = config['general']['use_ai']
-USE_TINY_ASR = config['general'].get('use_tiny_asr', False)
-USE_TINY_TTS = config['general'].get('use_tiny_tts', False)
-VOICE_CLONE = config['general'].get('voice_clone', None)
 
-def main():
-    """Main entry point for the voice assistant."""
-    assistant = Assistant(wakeword=WAKEWORD, use_ai=USE_AI, use_tiny_asr=USE_TINY_ASR, use_tiny_tts=USE_TINY_TTS, voice_clone=VOICE_CLONE)
-    assistant.run()
+def main() -> None:
+    """Start the HTTP API server."""
+    api_config = config.get("api", {})
+
+    host = os.getenv("FULLOCH_HOST", str(api_config.get("host", "0.0.0.0")))
+    port = int(os.getenv("FULLOCH_PORT", str(api_config.get("port", 8000))))
+    log_level = str(api_config.get("log_level", "info")).lower()
+
+    app = create_app(config)
+
+    import uvicorn
+
+    uvicorn.run(app, host=host, port=port, log_level=log_level)
 
 
 if __name__ == "__main__":

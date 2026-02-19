@@ -28,10 +28,13 @@ USER appuser
 
 # Copy application code
 COPY --chown=appuser:appuser app.py .
+COPY --chown=appuser:appuser api/ api/
 COPY --chown=appuser:appuser core/ core/
 COPY --chown=appuser:appuser tools/ tools/
 COPY --chown=appuser:appuser utils/ utils/
 COPY --chown=appuser:appuser audio/ audio/
+
+EXPOSE 8000
 
 # Run the app
 CMD ["python", "app.py"]

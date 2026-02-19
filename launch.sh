@@ -201,14 +201,6 @@ else
     echo "✅ Using default containers"
 fi
 
-# 8. Prepare runtime environment
-# Ensure XDG_RUNTIME_DIR is set with the correct UID (compose files reference it)
-export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
-
-# Ensure PulseAudio cookie exists (PipeWire systems may not create one)
-mkdir -p "${HOME}/.config/pulse"
-[ -f "${HOME}/.config/pulse/cookie" ] || touch "${HOME}/.config/pulse/cookie"
-
-# 9. Launch Docker Compose
+# 8. Launch Docker Compose
 echo "🚀 All files checked. Starting services..."
 docker compose -f "$COMPOSE_FILE" up -d

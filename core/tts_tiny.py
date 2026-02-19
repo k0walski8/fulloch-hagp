@@ -7,6 +7,7 @@ Handles loading and running the Kokoro text-to-speech model.
 import logging
 import re
 
+import numpy as np
 import sounddevice as sd
 import torch
 from kokoro import KPipeline
@@ -74,3 +75,36 @@ def speak_stream(text: str, prompt=None, voice: str = "af_bella", speed: float =
 
     for _, _, audio in generator:
         sd.play(audio, samplerate=sample_rate, blocking=True)
+
+
+def synthesize(text: str, prompt=None, voice: str = "af_bella", speed: float = 1.2):
+    """
+    Generate full waveform audio for API responses.
+
+    Args:
+        text: Text to synthesize
+        prompt: Not used
+        voice: Voice model to use
+        speed: Speech speed multiplier
+
+    Returns:
+        Tuple of (audio waveform float32 numpy array, sample_rate)
+    """
+    _ = prompt
+    generator = kpipeline(
+        text,
+        voice=voice,
+        speed=speed,
+        split_pattern=r"\n+",
+    )
+
+    chunks = []
+    sample_rate = 24000
+
+    for _, _, audio in generator:
+        chunks.append(np.asarray(audio, dtype=np.float32))
+
+    if not chunks:
+        return np.zeros(1, dtype=np.float32), sample_rate
+
+    return np.concatenate(chunks).astype(np.float32), sample_rate

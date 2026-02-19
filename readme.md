@@ -36,42 +36,37 @@ https://github.com/user-attachments/assets/b06fe935-c5bf-4b50-a931-7799cb787801
 ## Architecture
 
 ```
-                           +------------------+
-                           |    Microphone    |
-                           +--------+---------+
-                                    |
-                           +--------v---------+
-                           |  Audio Capture   |
-                           |  (Silence Det.)  |
-                           +--------+---------+
-                                    |
-                           +--------v---------+
-                           |    Qwen3 ASR     |
-                           |  (Speech→Text)   |
-                           +--------+---------+
-                                    |
-                    +---------------+---------------+
-                    |                               |
-           +--------v---------+            +--------v---------+
-           |   Regex Intent   |            |    Qwen 3 SLM    |
-           |   (Fast Path)    |            |   (AI Intent)    |
-           +--------+---------+            +--------+---------+
-                    |                               |
-                    +---------------+---------------+
-                                    |
-                           +--------v---------+
-                           |  Tool Registry   |
-                           |  (Execute Cmd)   |
-                           +--------+---------+
-                                    |
-                           +--------v---------+
-                           |    Qwen3 TTS     |
-                           |  (Text→Speech)   |
-                           +--------+---------+
-                                    |
-                           +--------v---------+
-                           |     Speaker      |
-                           +------------------+
+                           +-------------------------+
+                           | Home Assistant / Client |
+                           +------------+------------+
+                                        |
+                           +------------v------------+
+                           | OpenAI-Compatible API   |
+                           |  /v1/chat/completions   |
+                           |  /v1/audio/transcriptions|
+                           |  /v1/audio/speech       |
+                           +------------+------------+
+                                        |
+                    +-------------------+-------------------+
+                    |                                       |
+           +--------v---------+                    +--------v---------+
+           |   Regex Intent   |                    |    Qwen 3 SLM    |
+           |   (Fast Path)    |                    | Intent + Chat LLM|
+           +--------+---------+                    +--------+---------+
+                    |                                       |
+                    +-------------------+-------------------+
+                                        |
+                           +------------v------------+
+                           |       Tool Registry     |
+                           |  (HA, Spotify, Hue, etc)|
+                           +------------+------------+
+                                        |
+                    +-------------------+-------------------+
+                    |                                       |
+           +--------v---------+                    +--------v---------+
+           | Qwen3/Moonshine  |                    | Qwen3/Kokoro TTS |
+           |      ASR         |                    |  (audio output)  |
+           +------------------+                    +------------------+
 ```
 
 ## Prerequisites
@@ -80,7 +75,7 @@ https://github.com/user-attachments/assets/b06fe935-c5bf-4b50-a931-7799cb787801
 - Python 3.10+
 - CUDA-capable GPU (recommended) or CPU
 - ~4GB disk space for models
-- Microphone and speakers
+- Home Assistant (optional, for voice pipeline integration)
 
 ## Quick Start
 
@@ -122,7 +117,15 @@ Or manually download:
 python app.py
 ```
 
-Say your wakeword (default: "computer") followed by a command.
+Server defaults to `http://0.0.0.0:8000`.
+
+### 5. API Endpoints
+
+- `POST /v1/chat/completions` (OpenAI-compatible chat)
+- `POST /v1/audio/transcriptions` (OpenAI Whisper-compatible STT)
+- `POST /v1/audio/speech` (OpenAI TTS-compatible speech)
+- `GET /v1/models`
+- `GET /health`
 
 ## Docker Deployment
 
@@ -133,7 +136,21 @@ Say your wakeword (default: "computer") followed by a command.
 The launch script:
 1. Downloads required models if not present
 2. Detects GPU availability
-3. Starts the assistant and SearXNG search service
+3. Starts the API service and SearXNG search service
+
+## GHCR Deployment
+
+Build and push manually:
+
+```bash
+# CPU image
+docker build -t ghcr.io/<github-user>/fulloch:latest .
+docker push ghcr.io/<github-user>/fulloch:latest
+
+# GPU image
+docker build -f Dockerfile_gpu -t ghcr.io/<github-user>/fulloch:gpu-latest .
+docker push ghcr.io/<github-user>/fulloch:gpu-latest
+```
 
 ## Configuration
 
@@ -141,15 +158,26 @@ The launch script:
 
 ```yaml
 general:
-  wakeword: "computer"       # Activation phrase
   use_ai: true               # Enable SLM for intent detection
   use_tiny_asr: false        # Use Moonshine Tiny ASR for edge devices
   use_tiny_tts: false        # Use Kokoro TTS for edge devices
   voice_clone: "cori"        # Voice clone name for Qwen3 TTS
 ```
 
+### API Settings
+
+```yaml
+api:
+  host: "0.0.0.0"
+  port: 8000
+  api_key: ""                # Optional bearer token
+  chat_model: "fulloch-qwen3-slm"
+  stt_model: "qwen3-asr-1.7b"
+  tts_model: "qwen3-tts-1.7b"
+```
+
 **ASR Options:**
-- `use_tiny_asr: false` (default) — Uses Qwen3-ASR-0.6B for higher accuracy
+- `use_tiny_asr: false` (default) — Uses Qwen3-ASR-1.7B for higher accuracy
 - `use_tiny_asr: true` — Uses Moonshine Tiny for low-resource edge devices
 
 **TTS Options:**
@@ -207,7 +235,17 @@ bom:
 
 ### Home Assistant
 
-Connect to a Home Assistant instance to control all your devices through a single integration.
+You can use Fulloch as the backend for Home Assistant Voice via OpenAI-compatible integrations.
+
+1. Run Fulloch and ensure Home Assistant can reach `http://<fulloch-host>:8000`.
+2. In Home Assistant, configure OpenAI-compatible providers for:
+- Conversation (`/v1/chat/completions`)
+- Speech-to-Text (`/v1/audio/transcriptions`)
+- Text-to-Speech (`/v1/audio/speech`)
+3. Use the model IDs from `api.chat_model`, `api.stt_model`, and `api.tts_model`.
+4. If `api.api_key` is set, use it as Bearer token in Home Assistant.
+
+Fulloch can also call Home Assistant as a tool for device control:
 
 1. Create a Long-Lived Access Token in your HA profile (`http://your-ha:8123/profile`)
 2. Configure:
@@ -235,40 +273,29 @@ See `data/config.example.yml` for all available integrations:
 - Airtouch HVAC
 - SearXNG web search
 
-## Voice Commands
+## Example Prompts
 
-### Basic Commands (No AI Required)
-
-| Action | Examples |
-|--------|----------|
-| **Music** | "Play music", "Stop", "Pause", "Skip", "Resume" |
-| **Timers** | "Set timer for 10 minutes", "Get timers" |
-| **Time** | "What time is it?" |
-
-### AI-Powered Commands
-
-| Action | Examples |
-|--------|----------|
-| **Lights** | "Turn on the kitchen lights", "Dim the bedroom to 50%" |
-| **Climate** | "Set the office to 22 degrees", "Turn off the AC" |
-| **Calendar** | "What's on today?", "What events do I have this week?" |
-| **TV** | "Turn on the TV", "Movie night" |
-| **Weather** | "What's the weather forecast?" |
-| **Search** | "Search for the latest news about..." |
+- "Play some jazz in Spotify"
+- "Turn on the kitchen lights"
+- "What is on my calendar today?"
+- "What's the weather in Sydney?"
+- "Summarize today's top tech news"
 
 ## Project Structure
 
 ```
 fulloch/
-├── app.py              # Entry point
+├── app.py              # API entry point
+├── api/                # OpenAI-compatible HTTP routes
+│   └── server.py
 ├── core/               # Core modules
-│   ├── audio.py        # Audio capture and silence detection
+│   ├── api_service.py  # Shared inference orchestration
 │   ├── asr.py          # Qwen3 ASR (default)
 │   ├── asr_tiny.py     # Moonshine Tiny ASR (edge devices)
 │   ├── tts.py          # Qwen3 TTS with voice cloning (default)
 │   ├── tts_tiny.py     # Kokoro TTS (edge devices)
 │   ├── slm.py          # Qwen language model
-│   └── assistant.py    # Main orchestration
+│   └── assistant.py    # Legacy wakeword loop (not default runtime)
 ├── tools/              # Smart home integrations
 │   ├── tool_registry.py
 │   ├── spotify.py
@@ -287,11 +314,11 @@ fulloch/
 
 ## Troubleshooting
 
-### No audio input detected
+### Home Assistant cannot connect
 
-- Check microphone permissions
-- Verify microphone is set as default input device
-- Adjust `SILENCE_THRESHOLD` in `core/audio.py` if too sensitive/insensitive
+- Check `http://<fulloch-host>:8000/health` from the Home Assistant host
+- Verify `api.port` and Docker port mapping
+- If `api.api_key` is set, verify bearer token in Home Assistant settings
 
 ### Model loading fails
 
@@ -309,7 +336,7 @@ fulloch/
 
 - Use GPU acceleration if available
 - Reduce `N_CONTEXT` in `core/slm.py` for less memory
-- Disable SLM for basic commands only (set `SLM_MODEL = ""`)
+- Disable SLM by setting `general.use_ai: false`
 
 ## Contributing
 

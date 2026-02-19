@@ -1,25 +1,20 @@
 services:
   # Fulloch AI
   app:
-    build:
-      context: .
+    image: ${FULLOCH_IMAGE:-ghcr.io/k0walski8/fulloch-hagp:latest}
     env_file:
       - .env
     container_name: fulloch-ai
-    network_mode: host
     restart: unless-stopped
-    devices:
-      - /dev/snd:/dev/snd
-    group_add:
-      - audio
-    environment:
-      - PULSE_SERVER=unix:${XDG_RUNTIME_DIR}/pulse/native
+    ports:
+      - "${FULLOCH_PORT:-8000}:8000"
     volumes:
       - ./data:/app/data:rw
-      - ${XDG_RUNTIME_DIR}/pulse:${XDG_RUNTIME_DIR}/pulse:ro
-      - ${HOME}/.config/pulse/cookie:/home/appuser/.config/pulse/cookie:ro
+    environment:
+      - FULLOCH_HOST=0.0.0.0
+      - FULLOCH_PORT=8000
     healthcheck:
-      test: ["CMD-SHELL", "pgrep -f 'python app.py' || exit 1"]
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)\" || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
