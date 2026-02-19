@@ -18,8 +18,10 @@ RUN apt-get update && apt-get install -y \
 
 # Install Python dependencies (Force transformers 4.57.3 for offline Qwen3 ASR to work)
 RUN pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
-COPY requirements.txt .
+COPY requirements.txt requirements-optional.txt ./
 RUN pip install --no-cache-dir -r requirements.txt && \
+    (pip install --no-cache-dir -r requirements-optional.txt || \
+     echo "Warning: Some optional integration dependencies failed to install") && \
     (pip install --no-deps git+https://github.com/rekuenkdr/Qwen3-TTS-streaming.git || \
      echo "Warning: Optional Qwen3-TTS install failed; use FULLOCH_USE_TINY_TTS=true")
 

@@ -7,8 +7,10 @@ ENV FORCE_CMAKE=1
 
 RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt /tmp/requirements.txt
+COPY requirements.txt requirements-optional.txt /tmp/
 RUN pip install --no-cache-dir -r /tmp/requirements.txt && \
+    (pip install --no-cache-dir -r /tmp/requirements-optional.txt || \
+     echo "Warning: Some optional integration dependencies failed to install") && \
     (pip install --no-deps git+https://github.com/rekuenkdr/Qwen3-TTS-streaming.git || \
      echo "Warning: Optional Qwen3-TTS install failed; use FULLOCH_USE_TINY_TTS=true") && \
     (pip install flash-attn --no-build-isolation || \

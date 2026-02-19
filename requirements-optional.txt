@@ -1,0 +1,11 @@
+# Optional integration dependencies
+# Failures in this file should not block container build.
+
+phue==1.1.0
+spotipy==2.25.1
+pyairtouch==3.1.0
+thinqconnect==1.0.8
+bscpylgtv==0.5.0
+google-api-python-client==2.187.0
+google-auth==2.41.1
+google-auth-oauthlib==1.2.3
