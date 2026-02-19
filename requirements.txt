@@ -22,7 +22,7 @@ llama_cpp_python>=0.3.16
 qwen-asr==0.0.6
 
 # These packages require special install flags - see Dockerfile
-# qwen-tts: pip install --no-deps git+https://github.com/rekuenkdr/Qwen3-TTS-streaming.git@97da215
+# qwen-tts: pip install --no-deps git+https://github.com/rekuenkdr/Qwen3-TTS-streaming.git
 # flash-attn: pip install --no-build-isolation --no-deps git+https://github.com/Dao-AILab/flash-attention.git@ef9e6a6
 
 # Smart home integration

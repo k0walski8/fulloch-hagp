@@ -86,7 +86,7 @@ git clone https://github.com/yourusername/fulloch.git
 cd fulloch
 pip install -r requirements.txt
 # Install special packages (see requirements.txt for details)
-pip install --no-deps git+https://github.com/rekuenkdr/Qwen3-TTS-streaming.git@97da215
+pip install --no-deps git+https://github.com/rekuenkdr/Qwen3-TTS-streaming.git
 # GPU only: pip install --no-build-isolation --no-deps git+https://github.com/Dao-AILab/flash-attention.git@ef9e6a6
 ```
 

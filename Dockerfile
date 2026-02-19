@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y \
 RUN pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-deps git+https://github.com/rekuenkdr/Qwen3-TTS-streaming.git@97da215
+    pip install --no-deps git+https://github.com/rekuenkdr/Qwen3-TTS-streaming.git
 
 # Create non-root user
 RUN useradd -m -u 1000 -s /bin/bash appuser
