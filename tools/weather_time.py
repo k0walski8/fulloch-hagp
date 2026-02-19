@@ -1,13 +1,7 @@
 """
 Weather and time information tool using the centralized tool registry.
 """
-import yaml
-
-try:
-    with open("./data/config.yml", "r") as f:
-        config = yaml.safe_load(f) or {}
-except FileNotFoundError:
-    config = {}
+import os
 
 from datetime import datetime
 import re
@@ -17,8 +11,6 @@ import io
 from typing import Optional, Dict
 from word2number import w2n
 import threading
-import json
-import os
 import time
 import sys
 
@@ -78,10 +70,11 @@ def summarize_today_tomorrow(forecast_data, location):
 
 
 def load_weather_config():
-    return config.get('bom', {
-        "host": "ftp.bom.gov.au",
-        "path": "/anon/gen/fwo/IDN11060.xml"
-    })
+    return {
+        "host": os.getenv("BOM_HOST", "ftp.bom.gov.au").strip(),
+        "path": os.getenv("BOM_PATH", "/anon/gen/fwo/IDN11060.xml").strip(),
+        "default": os.getenv("BOM_DEFAULT_LOCATION", "Sydney").strip(),
+    }
 
 
 @tool(
@@ -360,4 +353,3 @@ if __name__ == "__main__":
     
     result = tool_registry.execute_tool("list_timers")
     print(f"After completion: {result}")
-

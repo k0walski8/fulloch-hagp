@@ -93,11 +93,10 @@ pip install --no-deps git+https://github.com/rekuenkdr/Qwen3-TTS-streaming.git@9
 ### 2. Configure
 
 ```bash
-cp data/config.example.yml data/config.yml
 cp .env.example .env
 ```
 
-Edit `data/config.yml` with your settings (see Configuration section below).
+Edit `.env` with your settings (see Environment Configuration section below).
 
 ### 3. Download Models
 
@@ -152,28 +151,26 @@ docker build -f Dockerfile_gpu -t ghcr.io/k0walski8/fulloch-hagp:gpu-latest .
 docker push ghcr.io/k0walski8/fulloch-hagp:gpu-latest
 ```
 
-## Configuration
+## Environment Configuration
 
-### General Settings
+### Core Settings
 
-```yaml
-general:
-  use_ai: true               # Enable SLM for intent detection
-  use_tiny_asr: false        # Use Moonshine Tiny ASR for edge devices
-  use_tiny_tts: false        # Use Kokoro TTS for edge devices
-  voice_clone: "cori"        # Voice clone name for Qwen3 TTS
+```bash
+FULLOCH_USE_AI=true
+FULLOCH_USE_TINY_ASR=false
+FULLOCH_USE_TINY_TTS=false
+FULLOCH_VOICE_CLONE=cori
 ```
 
 ### API Settings
 
-```yaml
-api:
-  host: "0.0.0.0"
-  port: 8000
-  api_key: ""                # Optional bearer token
-  chat_model: "fulloch-qwen3-slm"
-  stt_model: "qwen3-asr-1.7b"
-  tts_model: "qwen3-tts-1.7b"
+```bash
+FULLOCH_HOST=0.0.0.0
+FULLOCH_PORT=8000
+FULLOCH_API_KEY=
+FULLOCH_CHAT_MODEL=fulloch-qwen3-slm
+FULLOCH_STT_MODEL=qwen3-asr-1.7b
+FULLOCH_TTS_MODEL=qwen3-tts-1.7b
 ```
 
 **ASR Options:**
@@ -191,26 +188,26 @@ api:
 
 1. Create an app at [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
 2. Add `http://localhost:8888/callback` as redirect URI
-3. Configure:
+3. Configure `.env`:
 
-```yaml
-spotify:
-  client_id: "your_client_id"
-  client_secret: "your_client_secret"
-  redirect_uri: "http://localhost:8888/callback"
-  device_id: "Your Speaker Name"
-  use_avr: false             # Enable Pioneer AVR integration when playing music (turn on amplifier/sound system before playing music)
+```bash
+ENABLE_SPOTIFY=true
+SPOTIPY_CLIENT_ID=your_client_id
+SPOTIPY_CLIENT_SECRET=your_client_secret
+SPOTIPY_REDIRECT_URI=http://localhost:8888/callback
+SPOTIFY_DEVICE_ID=Your Speaker Name
+SPOTIFY_USE_AVR=false
 ```
 
 ### Philips Hue
 
 1. Press the button on your Hue Bridge
 2. Run the app to auto-register
-3. Configure:
+3. Configure `.env`:
 
-```yaml
-philips:
-  hue_hub_ip: "192.168.1.100"
+```bash
+ENABLE_PHILIPS_HUE=true
+PHILIPS_HUE_HUB_IP=192.168.1.100
 ```
 
 ### Google Calendar
@@ -218,26 +215,24 @@ philips:
 1. Create credentials at [Google Cloud Console](https://console.cloud.google.com/)
 2. Enable Google Calendar API
 3. Download OAuth credentials JSON
-4. Configure:
+4. Configure `.env`:
 
-```yaml
-google:
-  cred_file: "./data/credentials.json"
-  token_file: "./data/token.json"
+```bash
+ENABLE_GOOGLE_CALENDAR=true
+GOOGLE_CREDENTIALS_FILE=./data/credentials.json
+GOOGLE_TOKEN_FILE=./data/token.json
 ```
 
 ### BOM Australia Weather
 
-```yaml
-bom:
-  default: "Sydney"          # Default location for weather
+```bash
+BOM_DEFAULT_LOCATION=Sydney
 ```
 
 ### Web Search (External SearXNG + Optional OpenRouter)
 
-```yaml
-search:
-  searxng_url: "http://192.168.50.153:30053"
+```bash
+SEARCH_SEARXNG_URL=http://192.168.50.153:30053
 ```
 
 Optional `.env` values for OpenRouter web-answer synthesis:
@@ -257,31 +252,25 @@ You can use Fulloch as the backend for Home Assistant Voice via OpenAI-compatibl
 - Conversation (`/v1/chat/completions`)
 - Speech-to-Text (`/v1/audio/transcriptions`)
 - Text-to-Speech (`/v1/audio/speech`)
-3. Use the model IDs from `api.chat_model`, `api.stt_model`, and `api.tts_model`.
-4. If `api.api_key` is set, use it as Bearer token in Home Assistant.
+3. Use the model IDs from `FULLOCH_CHAT_MODEL`, `FULLOCH_STT_MODEL`, and `FULLOCH_TTS_MODEL`.
+4. If `FULLOCH_API_KEY` is set, use it as Bearer token in Home Assistant.
 
-Fulloch can also call Home Assistant as a tool for device control:
+Fulloch can also call Home Assistant as a tool for device control (env-only):
 
-1. Create a Long-Lived Access Token in your HA profile (`http://your-ha:8123/profile`)
-2. Configure:
-
-```yaml
-home_assistant:
-  enabled: true                    # Must be explicitly enabled
-  url: "http://192.168.1.50:8123"
-  token: "your_long_lived_token"
-  entity_aliases:                  # Map friendly names to entity IDs
-    living room lights: "light.living_room"
-    front door: "lock.front_door"
+```bash
+ENABLE_HOME_ASSISTANT=true
+HOME_ASSISTANT_URL=http://192.168.1.50:8123
+HOME_ASSISTANT_TOKEN=your_long_lived_token
+HOME_ASSISTANT_ENTITY_ALIASES={\"living room lights\":\"light.living_room\",\"front door\":\"lock.front_door\"}
 ```
 
 **Important**: The Home Assistant integration is **disabled by default**. When enabled, it registers generic tool names like `turn_on`, `turn_off`, and `toggle` which may conflict with other integrations (e.g., Philips Hue lighting tools). Only enable this if you want Home Assistant to be your primary home automation controller.
 
-If you use both Home Assistant and direct integrations (like Philips Hue), keep `enabled: false` and use the direct integrations instead.
+If you use both Home Assistant and direct integrations (like Philips Hue), keep `ENABLE_HOME_ASSISTANT=false` and use the direct integrations instead.
 
 ### Other Integrations
 
-See `data/config.example.yml` for all available integrations:
+See `.env.example` for all available integration variables:
 - LG ThinQ (smart appliances)
 - WebOS TV control
 - Pioneer/Onkyo AVR
@@ -323,7 +312,6 @@ fulloch/
 ├── audio/              # Audio utilities
 │   └── beep_manager.py
 └── data/               # Configuration and models
-    ├── config.yml      # Your configuration
     └── models/         # Downloaded models
 ```
 

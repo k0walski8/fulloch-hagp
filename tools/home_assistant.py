@@ -1,28 +1,22 @@
-"""Home Assistant integration for Fulloch voice assistant.
+"""Home Assistant integration for Fulloch voice assistant."""
 
-Connects to a Home Assistant instance via REST API for home automation control.
-Requires a long-lived access token configured in data/config.yml.
-
-This module is only loaded when 'home_assistant' is present in config.yml.
-Note: This registers generic tool names like "turn_on" and "turn_off" which
-may conflict with other integrations (e.g., Philips Hue lighting).
-"""
+import json
+from typing import Optional
 
 import requests
-import yaml
-from typing import Optional
+
+from utils.env_config import env_int, env_json_dict, env_str
 
 from .tool_registry import tool
 
-# Load configuration
-with open("./data/config.yml", "r") as f:
-    config = yaml.safe_load(f)
-HA_CONFIG = config.get('home_assistant', {})
-
 # Home Assistant connection settings
-HA_URL = HA_CONFIG.get('url', 'http://localhost:8123')
-HA_TOKEN = HA_CONFIG.get('token', '')
-TIMEOUT = HA_CONFIG.get('timeout', 10)
+HA_URL = env_str("HOME_ASSISTANT_URL", "http://localhost:8123")
+HA_TOKEN = env_str("HOME_ASSISTANT_TOKEN", "")
+TIMEOUT = env_int("HOME_ASSISTANT_TIMEOUT", 10)
+HA_ALIASES = {
+    str(k).lower(): str(v)
+    for k, v in env_json_dict("HOME_ASSISTANT_ENTITY_ALIASES", {}).items()
+}
 
 
 def _get_headers() -> dict:
@@ -36,7 +30,7 @@ def _get_headers() -> dict:
 def _call_service(domain: str, service: str, entity_id: str, data: Optional[dict] = None) -> str:
     """Call a Home Assistant service."""
     if not HA_TOKEN:
-        return "Error: Home Assistant token not configured. Add 'token' to home_assistant config."
+        return "Error: Home Assistant token not configured. Set HOME_ASSISTANT_TOKEN."
 
     url = f"{HA_URL}/api/services/{domain}/{service}"
     payload = {"entity_id": entity_id}
@@ -74,14 +68,12 @@ def _get_state(entity_id: str) -> Optional[dict]:
 def _resolve_entity(name: str, domain: str = None) -> str:
     """Resolve a friendly name or alias to an entity_id.
 
-    Checks the entity_aliases config mapping first, then assumes
+    Checks the HOME_ASSISTANT_ENTITY_ALIASES mapping first, then assumes
     the name is already a valid entity_id.
     """
-    aliases = HA_CONFIG.get('entity_aliases', {})
-
     # Check if it's a configured alias
-    if name.lower() in aliases:
-        return aliases[name.lower()]
+    if name.lower() in HA_ALIASES:
+        return HA_ALIASES[name.lower()]
 
     # If it looks like an entity_id already, return as-is
     if '.' in name:
@@ -273,8 +265,6 @@ def call_ha_service(domain: str, service: str, entity: str, data: Optional[str] 
         entity: Entity ID to target
         data: Optional JSON string with additional service data
     """
-    import json
-
     entity_id = _resolve_entity(entity)
 
     extra_data = None

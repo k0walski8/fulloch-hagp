@@ -20,11 +20,11 @@ If you discover a security vulnerability, please report it responsibly:
 
 ## Security Considerations
 
-### Configuration Files
+### Environment Files
 
-- `data/config.yml` contains service credentials and should never be committed
-- `.env` files contain sensitive environment variables
-- Both files are excluded from git via `.gitignore`
+- `.env` contains sensitive environment variables and should never be committed
+- Runtime is environment-only; `config.yml` is no longer used
+- `.env` is excluded from git via `.gitignore`
 
 ### Network Services
 

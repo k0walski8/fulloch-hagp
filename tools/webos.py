@@ -1,27 +1,27 @@
 """
 Connect to WebOS - LG TV Control
 """
-import yaml
-
-with open("./data/config.yml", "r") as f:
-    config = yaml.safe_load(f)
-
 import asyncio
+import logging
+import os
 import socket
 from bscpylgtv import WebOsClient
-import os
-import json
 
 from .lighting import turn_off_lights
 from .pioneer_avr import setup_avr
 from .tool_registry import tool, tool_registry
 
-import logging
-
 logger = logging.getLogger(__name__)
 
-TV_IP = config['webos']["ip_address"]
-TV_MAC = config['webos']["mac_address"]
+TV_IP = os.getenv("WEBOS_TV_IP", "").strip()
+TV_MAC = os.getenv("WEBOS_TV_MAC", "").strip()
+
+
+def _ensure_tv_configured() -> bool:
+    if TV_IP:
+        return True
+    logger.error("WebOS TV not configured. Set WEBOS_TV_IP.")
+    return False
 
 class LGTVController:
     def __init__(self, tv_ip, mac_address=None):
@@ -151,6 +151,8 @@ class LGTVController:
     aliases=["tv_on", "watch_tv", "tv"]
 )
 def turn_on_tv():
+    if not _ensure_tv_configured():
+        return "WebOS TV not configured. Set WEBOS_TV_IP."
     tv = LGTVController(TV_IP, TV_MAC)
     """Turn on the TV"""
     try:
@@ -166,6 +168,8 @@ def turn_on_tv():
     aliases=["tv_off", "no_tv"]
 )
 def turn_off_tv():
+    if not _ensure_tv_configured():
+        return "WebOS TV not configured. Set WEBOS_TV_IP."
     tv = LGTVController(TV_IP, TV_MAC)
     """Turn off the TV"""
     try:
@@ -181,6 +185,8 @@ def turn_off_tv():
     aliases=["tv_volume", "volume_tv"]
 )
 def set_tv_volume(new_volume: str):
+    if not _ensure_tv_configured():
+        return "WebOS TV not configured. Set WEBOS_TV_IP."
     tv = LGTVController(TV_IP, TV_MAC)
     """Set TV Volume"""
     try:
@@ -191,6 +197,9 @@ def set_tv_volume(new_volume: str):
         return loop.create_task(tv.set_volume(int(new_volume)))
 
 async def _movie_night():
+    if not _ensure_tv_configured():
+        return "WebOS TV not configured. Set WEBOS_TV_IP."
+
     tv = LGTVController(TV_IP, TV_MAC)
 
     try:
@@ -200,8 +209,10 @@ async def _movie_night():
         turn_off_lights("Living Room")
         # Turn on TV from standby
         await tv.power_on()
+        return "Movie night setup completed"
     except Exception as e:
         logger.debug(f"❌ Error: {e}")
+        return f"Movie night setup failed: {e}"
     finally:
         await tv.disconnect()
 

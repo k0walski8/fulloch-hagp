@@ -2,24 +2,26 @@
 Tool for connecting to Pioneer eISCP protocol 
 Communication standard used to control Pioneer and Onkyo audio/video receivers over a network
 """
-import yaml
-
-with open("./data/config.yml", "r") as f:
-    config = yaml.safe_load(f)
-
 import asyncio
 import logging
+import os
 import re
-import sys
 from typing import Optional, Dict
 
 from .tool_registry import tool, tool_registry
-import logging
 
 logger = logging.getLogger(__name__)
 
-HOST = config['pioneer']['avr_host']
-PORT = config['pioneer']['avr_port']
+HOST = os.getenv("PIONEER_AVR_HOST", "").strip()
+PORT = int(os.getenv("PIONEER_AVR_PORT", "60128").strip() or "60128")
+
+
+def _ensure_configured() -> bool:
+    """Ensure AVR host is configured."""
+    if HOST:
+        return True
+    logger.error("Pioneer AVR not configured. Set PIONEER_AVR_HOST.")
+    return False
 
 
 # Command mappings for Pioneer eISCP protocol
@@ -245,6 +247,9 @@ async def setup_avr(input_type: str = "Music"):
     Setup function for AVR control.
     Connects to AVR, checks power state, turns on, sets input and volume.
     """    
+    if not _ensure_configured():
+        return "Pioneer AVR not configured."
+
     if input_type.upper() == "MUSIC":
         vol = 50
     else:
@@ -263,13 +268,13 @@ async def setup_avr(input_type: str = "Music"):
                 await avr.set_volume(vol)            
     except asyncio.TimeoutError:
         logger.error(f"Connection timeout to {HOST}:{PORT}")
-        sys.exit(1)
+        return f"Pioneer timeout to {HOST}:{PORT}"
     except ConnectionRefusedError:
         logger.error(f"Connection refused by {HOST}:{PORT}")
-        sys.exit(1)
+        return f"Pioneer connection refused by {HOST}:{PORT}"
     except Exception as e:
         logger.error(f"Test failed with error: {e}")
-        sys.exit(1)
+        return f"Pioneer setup failed: {e}"
 
 if __name__ == "__main__":
     asyncio.run(setup_avr("Music"))
@@ -295,14 +300,18 @@ if __name__ == "__main__":
 # Turn On
 async def _turn_on_sound_system():
     """Turn on the sound system."""
+    if not _ensure_configured():
+        return "Pioneer AVR not configured."
+
     try:
         async with AVR(HOST, PORT) as avr:
             if not avr.power:
                 await avr.set_power(True)
                 await asyncio.sleep(5)  # Wait for AVR to boot (slow)
+        return "Sound system turned on"
     except Exception as e:
         logger.error(f"Pioneer power on failed with error: {e}")
-        sys.exit(1)
+        return f"Pioneer power on failed: {e}"
 
 
 @tool(
@@ -323,12 +332,16 @@ def turn_on_sound_system():
 # Turn Off
 async def _turn_off_sound_system():
     """Turn off the sound system."""
+    if not _ensure_configured():
+        return "Pioneer AVR not configured."
+
     try:
         async with AVR(HOST, PORT) as avr:
             await avr.set_power(False)  
+        return "Sound system turned off"
     except Exception as e:
         logger.error(f"Pioneer power off failed with error: {e}")
-        sys.exit(1)
+        return f"Pioneer power off failed: {e}"
 
 
 @tool(
@@ -348,12 +361,16 @@ def turn_off_sound_system():
 # Set Input
 async def _set_input_sound_system(input_no: str = '04'):
     """Set the sound system input."""
+    if not _ensure_configured():
+        return "Pioneer AVR not configured."
+
     try:
         async with AVR(HOST, PORT) as avr:
             await avr.set_input_number(input_no)
+        return f"Sound system input set to {input_no}"
     except Exception as e:
         logger.error(f"Pioneer input change failed with error: {e}")
-        sys.exit(1)
+        return f"Pioneer input change failed: {e}"
 
 
 @tool(
@@ -375,12 +392,16 @@ def set_input_sound_system(input_type: str = "Music"):
 # Set Volume
 async def _set_volume_sound_system(volume_no: int = 35):
     """Set the sound system volume."""
+    if not _ensure_configured():
+        return "Pioneer AVR not configured."
+
     try:
         async with AVR(HOST, PORT) as avr:
             await avr.set_volume(volume_no)
+        return f"Sound system volume set to {volume_no}"
     except Exception as e:
         logger.error(f"Pioneer volume change failed with error: {e}")
-        sys.exit(1)
+        return f"Pioneer volume change failed: {e}"
 
 
 @tool(
@@ -401,15 +422,19 @@ def set_volume_sound_system(volume: Optional[str] = None):
 # Increase Volume
 async def _increase_volume_sound_system():
     """increase the sound system volume."""
+    if not _ensure_configured():
+        return "Pioneer AVR not configured."
+
     try:
         async with AVR(HOST, PORT) as avr:
             await avr.update_state()
             await asyncio.sleep(1)
             curr_volume = int(avr.volume or 80) # Default to -35dB (90 raw)
             await avr.set_volume(curr_volume+10)
+        return "Sound system volume increased"
     except Exception as e:
         logger.error(f"Pioneer volume change failed with error: {e}")
-        sys.exit(1)
+        return f"Pioneer volume increase failed: {e}"
 
 
 @tool(
@@ -429,15 +454,19 @@ def increase_volume_sound_system():
 # Decrease Volume
 async def _decrease_volume_sound_system():
     """Decrease the sound system volume."""
+    if not _ensure_configured():
+        return "Pioneer AVR not configured."
+
     try:
         async with AVR(HOST, PORT) as avr:
             await avr.update_state()
             await asyncio.sleep(1)
             curr_volume = int(avr.volume or 100) # Default to -35dB (90 raw)
             await avr.set_volume(curr_volume-10)
+        return "Sound system volume decreased"
     except Exception as e:
         logger.error(f"Pioneer volume change failed with error: {e}")
-        sys.exit(1)
+        return f"Pioneer volume decrease failed: {e}"
 
 
 @tool(

@@ -5,13 +5,9 @@ This module provides calendar functionality with proper
 schema definitions and function calling support.
 """
 import os
-import yaml
 from dotenv import load_dotenv
 
 load_dotenv()  # Load .env vars
-
-with open("./data/config.yml", "r") as f:
-    config = yaml.safe_load(f)
 
 import datetime
 import re
@@ -25,12 +21,15 @@ from .tool_registry import tool, tool_registry
 # If modifying SCOPES, delete the token.json file
 SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
 
-TOKEN = config['google']['token_file']
-CREDS = config['google']['cred_file']
+TOKEN = os.getenv("GOOGLE_TOKEN_FILE", "./data/token.json").strip()
+CREDS = os.getenv("GOOGLE_CREDENTIALS_FILE", "./data/credentials.json").strip()
 
 
 def authenticate_google_calendar():
     """Authenticate with Google Calendar API, refreshing or acquiring a new token if needed."""
+    if not CREDS:
+        raise ValueError("GOOGLE_CREDENTIALS_FILE is not set")
+
     creds = None
     if os.path.exists(TOKEN):
         creds = Credentials.from_authorized_user_file(TOKEN, SCOPES)

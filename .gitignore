@@ -51,7 +51,6 @@ archives/
 # Local Configuration and Secrets
 # =============================================================================
 .env
-data/config.yml
 data/credentials.json
 data/token.json
 *.pem
@@ -96,7 +95,6 @@ data/voices/private
 # =============================================================================
 # Keep Example Configs (negation patterns)
 # =============================================================================
-!data/config.example.yml
 !.env.example
 publish.sh
 searxng_data/settings.yml.new

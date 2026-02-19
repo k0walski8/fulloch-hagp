@@ -50,8 +50,6 @@ LICENSE
 # =============================================================================
 .env
 .env.example
-data/config.yml
-data/config.example.yml
 data/credentials.json
 data/token.json
 

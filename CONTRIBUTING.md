@@ -16,12 +16,11 @@ Thank you for your interest in contributing to Fulloch! This document provides g
    # GPU only: pip install --no-build-isolation --no-deps git+https://github.com/Dao-AILab/flash-attention.git@ef9e6a6
    pip install -e ".[dev]"  # Install dev dependencies
    ```
-4. Copy configuration files:
+4. Copy environment template:
    ```bash
-   cp data/config.example.yml data/config.yml
    cp .env.example .env
    ```
-5. Edit `data/config.yml` with your settings
+5. Edit `.env` with your settings
 
 ## Adding New Tools
 
@@ -32,18 +31,13 @@ Fulloch uses a decorator-based tool registry system. To add a new tool:
 Create `tools/my_tool.py`:
 
 ```python
-"""
-My new tool description.
-"""
-import yaml
-
-with open("./data/config.yml", "r") as f:
-    config = yaml.safe_load(f)
+\"\"\"My new tool description.\"\"\"
+import os
 
 from .tool_registry import tool, tool_registry
 
-# Load configuration if needed
-MY_CONFIG = config.get('my_tool', {})
+# Load env configuration if needed
+MY_SETTING = os.getenv(\"MY_SETTING\", \"default\")
 
 
 @tool(
@@ -83,17 +77,13 @@ __all__ = [
 ]
 ```
 
-### Step 3: Add configuration (if needed)
+### Step 3: Add environment variables (if needed)
 
-Add a section to `data/config.example.yml`:
+Add variables to `.env.example`:
 
-```yaml
-# =============================================================================
-# My Tool
-# =============================================================================
-my_tool:
-  setting1: "value1"
-  setting2: 123
+```bash
+MY_SETTING=default_value
+MY_OTHER_SETTING=123
 ```
 
 ### Step 4: Test your tool

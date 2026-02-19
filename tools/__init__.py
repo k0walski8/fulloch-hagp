@@ -1,59 +1,50 @@
-"""
-Tools package for the voice assistant.
+"""Tools package for the voice assistant.
 
-This package contains all the tools that can be used by the voice assistant.
-Tools are conditionally loaded based on which integrations are configured
-in data/config.yml. Commenting out or removing a config section disables
-that tool entirely.
+Tools are conditionally loaded via environment variables.
 """
 
-import yaml
-import logging
+from __future__ import annotations
+
 import importlib
+import logging
+
+from utils.env_config import env_bool
 
 logger = logging.getLogger(__name__)
 
-# Load configuration to determine which tools to activate
-try:
-    with open("./data/config.yml", "r") as f:
-        _config = yaml.safe_load(f) or {}
-except FileNotFoundError:
-    _config = {}
-
-# Mapping of tool module names to their required config key.
-# A tool is only loaded if its config key is present in config.yml.
-_TOOL_CONFIG_MAP = {
-    'spotify': 'spotify',
-    'lighting': 'philips',
-    'google_calendar': 'google',
-    'airtouch': 'airtouch',
-    'thinq': 'thinq',
-    'webos': 'webos',
-    'search_web': 'search',
-    'pioneer_avr': 'pioneer',
-    'home_assistant': 'home_assistant',
+# Tool module -> env flag
+_TOOL_ENV_MAP = {
+    "spotify": ("ENABLE_SPOTIFY", False),
+    "lighting": ("ENABLE_PHILIPS_HUE", False),
+    "google_calendar": ("ENABLE_GOOGLE_CALENDAR", False),
+    "airtouch": ("ENABLE_AIRTOUCH", False),
+    "thinq": ("ENABLE_THINQ", False),
+    "webos": ("ENABLE_WEBOS", False),
+    "search_web": ("ENABLE_SEARCH_WEB", True),
+    "pioneer_avr": ("ENABLE_PIONEER_AVR", False),
+    "home_assistant": ("ENABLE_HOME_ASSISTANT", False),
 }
 
-# Always load these tools (no config dependency)
-_ALWAYS_LOAD = ['weather_time']
+# Always load weather/time tools unless explicitly disabled
+_ALWAYS_LOAD = ["weather_time"] if env_bool("ENABLE_WEATHER_TIME", True) else []
 
-for _module_name in _ALWAYS_LOAD:
+for module_name in _ALWAYS_LOAD:
     try:
-        importlib.import_module(f'.{_module_name}', package=__name__)
-    except Exception as e:
-        logger.error(f"Failed to load tool {_module_name}: {e}")
+        importlib.import_module(f".{module_name}", package=__name__)
+        logger.info("Loaded tool: %s", module_name)
+    except Exception as exc:
+        logger.error("Failed to load tool %s: %s", module_name, exc)
 
-for _module_name, _config_key in _TOOL_CONFIG_MAP.items():
-    if _config_key in _config:
+for module_name, (env_var, default_enabled) in _TOOL_ENV_MAP.items():
+    if env_bool(env_var, default_enabled):
         try:
-            importlib.import_module(f'.{_module_name}', package=__name__)
-            logger.info(f"Loaded tool: {_module_name}")
-        except Exception as e:
-            logger.error(f"Failed to load tool {_module_name}: {e}")
+            importlib.import_module(f".{module_name}", package=__name__)
+            logger.info("Loaded tool: %s (%s=true)", module_name, env_var)
+        except Exception as exc:
+            logger.error("Failed to load tool %s: %s", module_name, exc)
     else:
-        logger.info(f"Skipping tool {_module_name} ('{_config_key}' not in config)")
+        logger.info("Skipping tool %s (%s=false)", module_name, env_var)
 
-# Import the tool registry
 from .tool_registry import tool_registry, tool
 
-__all__ = ['tool_registry', 'tool']
+__all__ = ["tool_registry", "tool"]

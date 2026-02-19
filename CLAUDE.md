@@ -88,15 +88,13 @@ MAX_UTTERANCE_MS = 10000     # Maximum speech length
 SILENCE_THRESHOLD = 0.001    # RMS threshold (lower = more sensitive)
 ```
 
-### Config Files (not in git)
-- `data/config.yml`: Service endpoints, wakeword, voice_clone, integration settings
-- `.env`: Credentials (Spotify, Google, etc.)
+### Environment Files (not in git)
+- `.env`: Service endpoints, feature flags, model IDs, and credentials
 - `data/models/`: Local model cache (~4-5GB)
 - `data/voices/`: Voice clone reference files (wav/txt pairs)
 
-### Example Config Files (in git)
-- `data/config.example.yml`: Template with all settings documented
-- `.env.example`: Template for credentials
+### Example Environment File (in git)
+- `.env.example`: Template with all settings documented
 
 ## Adding New Tools
 
@@ -135,8 +133,7 @@ fulloch/
 │   ├── conftest.py
 │   ├── test_intent_catch.py
 │   └── test_tool_registry.py
-└── data/               # Config and models
-    └── config.example.yml
+└── data/               # Models and voice assets
 ```
 
 ## Available Integrations

@@ -74,21 +74,11 @@ echo "✅ All dependencies found."
 echo "📂 Checking directory structure..."
 mkdir -p "$HUB_DIR" "$GRAMMAR_DIR"
 
-# 2a. Check for config.yml and .env, create from templates if missing
-CONFIG_FILE="$(pwd)/data/config.yml"
-CONFIG_EXAMPLE="$(pwd)/data/config.example.yml"
+# 2a. Check for .env, create from template if missing
 ENV_FILE="$(pwd)/.env"
 ENV_EXAMPLE="$(pwd)/.env.example"
 
 CREATED_FILES=()
-
-if [ ! -f "$CONFIG_FILE" ]; then
-    echo "📝 config.yml not found. Creating from template..."
-    cp "$CONFIG_EXAMPLE" "$CONFIG_FILE"
-    CREATED_FILES+=("data/config.yml")
-else
-    echo "✅ config.yml exists."
-fi
 
 if [ ! -f "$ENV_FILE" ]; then
     echo "📝 .env not found. Creating from template..."

@@ -1,72 +1,92 @@
-"""
-Spotify music control tool 
-"""
-import os
-import yaml
-from dotenv import load_dotenv
+"""Spotify music control tool."""
 
-load_dotenv()  # Load .env vars
-
-with open("./data/config.yml", "r") as f:
-    config = yaml.safe_load(f)
+from __future__ import annotations
 
 import asyncio
-import spotipy
-from spotipy.oauth2 import SpotifyOAuth
-import json
+import difflib
+import logging
+import os
 import re
 from typing import Optional
-import difflib
+
+import spotipy
+from dotenv import load_dotenv
+from spotipy.oauth2 import SpotifyOAuth
+
+from utils.env_config import env_bool
 
 from .pioneer_avr import setup_avr
 from .tool_registry import tool, tool_registry
 
-import logging
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-CREDS= config['spotify']
+SCOPE = "user-read-playback-state user-modify-playback-state user-read-currently-playing"
+SIMILARITY_THRESHOLD = 0.6
 
-SCOPE = 'user-read-playback-state user-modify-playback-state user-read-currently-playing'
+SPOTIPY_CLIENT_ID = os.getenv("SPOTIPY_CLIENT_ID", "").strip()
+SPOTIPY_CLIENT_SECRET = os.getenv("SPOTIPY_CLIENT_SECRET", "").strip()
+SPOTIPY_REDIRECT_URI = os.getenv("SPOTIPY_REDIRECT_URI", "http://localhost:8888/callback").strip()
+SPOTIFY_DEVICE_NAME = os.getenv("SPOTIFY_DEVICE_ID", "").strip()
+SPOTIFY_USE_AVR = env_bool("SPOTIFY_USE_AVR", False)
 
-SIMILARITY_THRESHOLD = 0.6 # How similar a user query is to a playlist, track or album
-
-sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
-    client_id=CREDS['client_id'],
-    client_secret=CREDS['client_secret'],
-    redirect_uri=CREDS['redirect_uri'],
-    scope='user-read-playback-state user-modify-playback-state user-read-currently-playing'
-))
+_sp_client = None
 
 
-def get_active_device():
+def _get_spotify_client():
+    """Create Spotify client lazily so missing env does not crash imports."""
+    global _sp_client
+    if _sp_client is not None:
+        return _sp_client
+
+    if not (SPOTIPY_CLIENT_ID and SPOTIPY_CLIENT_SECRET and SPOTIPY_REDIRECT_URI):
+        return None
+
+    try:
+        auth_manager = SpotifyOAuth(
+            client_id=SPOTIPY_CLIENT_ID,
+            client_secret=SPOTIPY_CLIENT_SECRET,
+            redirect_uri=SPOTIPY_REDIRECT_URI,
+            scope=SCOPE,
+        )
+        _sp_client = spotipy.Spotify(auth_manager=auth_manager)
+        return _sp_client
+    except Exception as exc:
+        logger.error("Spotify initialization failed: %s", exc)
+        return None
+
+
+def get_active_device(sp_client) -> Optional[str]:
     """Get the active Spotify device ID."""
-    devices = sp.devices()
-    for device in devices['devices']:
-        if device['name'] == CREDS['device_id']:
-            return device['id']
+    devices = sp_client.devices()
+
+    # Prefer configured device name when provided
+    if SPOTIFY_DEVICE_NAME:
+        for device in devices.get("devices", []):
+            if device.get("name") == SPOTIFY_DEVICE_NAME:
+                return device.get("id")
+
+    # Fall back to currently active device
+    for device in devices.get("devices", []):
+        if device.get("is_active"):
+            return device.get("id")
+
     return None
 
 
 @tool(
     name="play_song",
     description="Play a song by artist and title, or search for a song by query",
-    aliases=["play", "play_music", "start_music"]
+    aliases=["play", "play_music", "start_music"],
 )
 def play_song(artist_query: Optional[str] = None, song: Optional[str] = None) -> str:
-    """
-    Play a song or playlist on Spotify, prioritizing user's playlist names, then songs in playlists,
-    top artists, saved albums, and finally general search.
+    """Play a song or playlist on Spotify."""
+    sp_client = _get_spotify_client()
+    if sp_client is None:
+        return "Spotify not configured. Set SPOTIPY_CLIENT_ID, SPOTIPY_CLIENT_SECRET, and SPOTIPY_REDIRECT_URI."
 
-    Args:
-        artist_query: Artist name, playlist name, or search query
-        song: Song title (if two arguments are provided, one is artist and one is song title)
-
-    Returns:
-        Status message about the played song or playlist.
-    """
-    # First try to setup sound system if not already on
-    if config['spotify']['use_avr']:
+    if SPOTIFY_USE_AVR:
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
@@ -74,121 +94,139 @@ def play_song(artist_query: Optional[str] = None, song: Optional[str] = None) ->
         else:
             loop.create_task(setup_avr("Music"))
 
-    # Ensure arguments are separated
-    if artist_query and re.search(r'\s+by\s+', artist_query):
-        parts = artist_query.split(' by ')
+    if artist_query and re.search(r"\s+by\s+", artist_query):
+        parts = artist_query.split(" by ")
         if len(parts) == 2:
             artist_query, song = parts[1].strip(), parts[0].strip()
 
-    if (re.sub(r'[^A-Za-z]+', '', str(artist_query).lower()) == "music") or (artist_query is None):
+    if (re.sub(r"[^A-Za-z]+", "", str(artist_query).lower()) == "music") or (artist_query is None):
         pause()
-        sp.start_playback(device_id=get_active_device())
+        sp_client.start_playback(device_id=get_active_device(sp_client))
         return "Playing music on spotify"
 
-    playlists = sp.current_user_playlists(limit=50)['items']
+    playlists = sp_client.current_user_playlists(limit=50).get("items", [])
 
-    # 1. Check if query closely matches a playlist name
-    playlist_names = [pl['name'] for pl in playlists]
-    # Find close matches to artist_query
-    matches = difflib.get_close_matches(artist_query, playlist_names, n=1, cutoff=0.6)
+    playlist_names = [pl.get("name") for pl in playlists if pl.get("name")]
+    matches = difflib.get_close_matches(artist_query or "", playlist_names, n=1, cutoff=SIMILARITY_THRESHOLD)
     if matches:
         for playlist in playlists:
-            if playlist['name'] == matches[0]:
+            if playlist.get("name") == matches[0]:
                 pause()
-                sp.start_playback(device_id=get_active_device(), context_uri=playlist['uri'])
-                return f"Playing your playlist \"{playlist['name']}\""
+                sp_client.start_playback(
+                    device_id=get_active_device(sp_client),
+                    context_uri=playlist.get("uri"),
+                )
+                return f"Playing your playlist \"{playlist.get('name')}\""
 
-    # Search user's top five playlists for the track
     for playlist in playlists[:5]:
-        results = sp.playlist_tracks(playlist['id'])
-        for item in results['items']:
-            track = item['track']
-            if (song and song.lower() in track['name'].lower()) or \
-               (artist_query and artist_query.lower() in track['artists'][0]['name'].lower()):
-                pause()
-                sp.start_playback(device_id=get_active_device(), uris=[track['uri']])
-                return f"Playing {track['name']} by {track['artists'][0]['name']} from your playlist \"{playlist['name']}\""
+        results = sp_client.playlist_tracks(playlist.get("id"))
+        for item in results.get("items", []):
+            track = item.get("track") or {}
+            artists = track.get("artists") or [{}]
+            artist_name = artists[0].get("name", "")
 
-    # Fallback to general search
+            if (song and song.lower() in track.get("name", "").lower()) or (
+                artist_query and artist_query.lower() in artist_name.lower()
+            ):
+                pause()
+                sp_client.start_playback(device_id=get_active_device(sp_client), uris=[track.get("uri")])
+                return f"Playing {track.get('name')} by {artist_name} from your playlist \"{playlist.get('name')}\""
+
     if artist_query and song:
-        results = sp.search(q=f"artist:{artist_query} track:{song}", type='track', limit=1)
+        results = sp_client.search(q=f"artist:{artist_query} track:{song}", type="track", limit=1)
     elif artist_query:
-        results = sp.search(q=artist_query, type='track', limit=1)
+        results = sp_client.search(q=artist_query, type="track", limit=1)
     else:
         return "Please provide either artist and song, playlist name, or a search query"
 
     try:
-        tracks = results.get('tracks', {}).get('items', [])
-        uris = [track['uri'] for track in tracks if 'uri' in track]
+        tracks = results.get("tracks", {}).get("items", [])
+        uris = [track["uri"] for track in tracks if "uri" in track]
 
-        if len(uris) == 0:
+        if not uris:
             pause()
-            sp.start_playback(device_id=get_active_device())
+            sp_client.start_playback(device_id=get_active_device(sp_client))
             return "No tracks found, starting playback"
-        else:
-            pause()
-            sp.start_playback(device_id=get_active_device(), uris=uris)
-            track = tracks[0]
-            return f"Playing {track['name']} by {track['artists'][0]['name']}"
-    except Exception as e:
+
+        pause()
+        sp_client.start_playback(device_id=get_active_device(sp_client), uris=uris)
+        track = tracks[0]
+        artist_name = (track.get("artists") or [{}])[0].get("name", "Unknown artist")
+        return f"Playing {track.get('name')} by {artist_name}"
+    except Exception:
         return "Unable to play your request"
 
 
 def is_playing() -> bool:
-    """Check if currently playing music on Spotify."""
-    playback = sp.current_playback()
-    if playback and playback['is_playing']:
-        return True
-    return False
+    """Check if Spotify is currently playing."""
+    sp_client = _get_spotify_client()
+    if sp_client is None:
+        return False
+
+    playback = sp_client.current_playback()
+    return bool(playback and playback.get("is_playing"))
+
 
 @tool(
     name="pause",
     description="Pause the currently playing music",
-    aliases=["stop"]
+    aliases=["stop"],
 )
 def pause() -> str:
-    """Pause the currently playing music on Spotify."""
-    playback = sp.current_playback()
-    if playback and playback['is_playing']:
-        sp.pause_playback()
+    """Pause currently playing music on Spotify."""
+    sp_client = _get_spotify_client()
+    if sp_client is None:
+        return "Spotify not configured."
+
+    playback = sp_client.current_playback()
+    if playback and playback.get("is_playing"):
+        sp_client.pause_playback()
     return "Playback paused."
 
 
 @tool(
     name="resume",
     description="Resume the currently paused music",
-    aliases=["play", "unpause"]
+    aliases=["play", "unpause"],
 )
 def resume() -> str:
-    """Resume the currently paused music on Spotify."""
-    playback = sp.current_playback()
-    if playback and not playback['is_playing']:
-        sp.start_playback(device_id=get_active_device())
+    """Resume paused Spotify playback."""
+    sp_client = _get_spotify_client()
+    if sp_client is None:
+        return "Spotify not configured."
+
+    playback = sp_client.current_playback()
+    if playback and not playback.get("is_playing"):
+        sp_client.start_playback(device_id=get_active_device(sp_client))
     return "Playback resumed."
 
 
 @tool(
     name="skip",
     description="Skip to the next track",
-    aliases=["next", "next_track"]
+    aliases=["next", "next_track"],
 )
 def skip() -> str:
-    """Skip to the next track in the playlist."""
-    sp.next_track()
+    """Skip to next track."""
+    sp_client = _get_spotify_client()
+    if sp_client is None:
+        return "Spotify not configured."
+
+    sp_client.next_track()
     return "Skipped to next track."
+
 
 if __name__ == "__main__":
     print("Spotify Music Controller")
-    print(sp.current_playback())
-    
-    # Print available tools
+    client = _get_spotify_client()
+    print(client.current_playback() if client else "Spotify not configured")
+
     print("\nAvailable tools:")
     for schema in tool_registry.get_all_schemas():
         print(f"  {schema.name}: {schema.description}")
         for param in schema.parameters:
             print(f"    - {param.name} ({param.type.value}): {param.description}")
-    
-    # Test function calling
+
     print("\nTesting function calling:")
     result = tool_registry.execute_tool("play_song", kwargs={"artist_query": "old mervs cellphone"})
     print(f"Result: {result}")

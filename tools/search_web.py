@@ -9,29 +9,16 @@ from datetime import datetime
 from typing import List
 
 import requests
-import yaml
 from bs4 import BeautifulSoup
 
 from .tool_registry import tool, tool_registry
 
 logger = logging.getLogger(__name__)
 
-
-def _load_config() -> dict:
-    """Load config file if available."""
-    try:
-        with open("./data/config.yml", "r", encoding="utf-8") as cfg_file:
-            return yaml.safe_load(cfg_file) or {}
-    except Exception:
-        return {}
-
-
-config = _load_config()
-
 DEFAULT_SEARXNG_URL = "http://192.168.50.153:30053"
 SEARXNG_URL = os.getenv(
     "SEARCH_SEARXNG_URL",
-    config.get("search", {}).get("searxng_url", DEFAULT_SEARXNG_URL),
+    DEFAULT_SEARXNG_URL,
 )
 
 OPENROUTER_WEB_SEARCH_ENABLED = os.getenv("OPENROUTER_WEB_SEARCH_ENABLED", "false").strip().lower() in {

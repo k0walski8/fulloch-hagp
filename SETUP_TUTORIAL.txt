@@ -1,8 +1,8 @@
-Fulloch HA + GHCR Setup Tutorial
-================================
+Fulloch HA + GHCR Setup Tutorial (Environment-Only)
+===================================================
 
-This project now runs as an OpenAI-compatible API for Home Assistant Voice.
-Docker Compose pulls a prebuilt GHCR image (no local Dockerfile build needed).
+This project is now fully environment-driven.
+No runtime config.yml is required.
 
 1) GitHub Repository Setup
 --------------------------
@@ -11,40 +11,23 @@ Repository: https://github.com/k0walski8/fulloch-hagp
 Required:
 - Main branch exists (main)
 - GitHub Actions enabled
-- Actions have permission to write packages
-
-Check in GitHub:
-- Settings -> Actions -> General
-  - Allow all actions and reusable workflows (or allow Docker official actions)
-- Settings -> Actions -> General -> Workflow permissions
-  - Select: Read and write permissions
+- Actions workflow permission: Read and write
 
 2) GHCR Setup
 -------------
-Image names published by workflow:
+Images:
 - ghcr.io/k0walski8/fulloch-hagp:latest
 - ghcr.io/k0walski8/fulloch-hagp:gpu-latest
 
-After first publish:
-- GitHub profile -> Packages -> fulloch-hagp
-- Set visibility as needed:
-  - Public (recommended for easiest pulls)
-  - Private (requires docker login on deployment host)
+If package is private:
+- Create GitHub PAT with read:packages
+- docker login ghcr.io -u k0walski8
 
-If private package:
-- Create GitHub PAT with scopes: read:packages
-- On deployment host:
-  docker login ghcr.io -u k0walski8
-  (use PAT as password)
-
-3) First Publish Flow
----------------------
-Code push to main triggers:
+3) Publish Flow
+---------------
+Push to main triggers:
 - .github/workflows/docker-publish.yml
-- Builds and pushes CPU + GPU images to GHCR
-
-Manual trigger option:
-- GitHub -> Actions -> Publish Docker Image -> Run workflow
+- Publishes CPU and GPU images
 
 4) Deployment Host Setup
 ------------------------
@@ -52,17 +35,10 @@ Requirements:
 - Docker Engine
 - Docker Compose plugin
 
-Files needed on host:
+Files needed:
 - compose.yml (CPU) or compose_gpu.yml (GPU)
-- data/config.yml
-- .env (optional)
-- data/models and data/voices mounted in ./data
-
-Compose image overrides (optional) in .env:
-- FULLOCH_IMAGE=ghcr.io/k0walski8/fulloch-hagp:latest
-- FULLOCH_GPU_IMAGE=ghcr.io/k0walski8/fulloch-hagp:gpu-latest
-- FULLOCH_PORT=8000
-- FULLOCH_API_KEY=<your_key_if_used>
+- .env
+- ./data/models and ./data/voices
 
 Run CPU:
 - docker compose -f compose.yml pull
@@ -75,27 +51,34 @@ Run GPU:
 Health check:
 - curl http://<host>:8000/health
 
-5) Web Search Setup (External SearXNG + Optional OpenRouter)
--------------------------------------------------------------
-In data/config.yml:
+5) Required Environment Variables
+---------------------------------
+Minimum runtime:
+- FULLOCH_USE_AI=true
+- FULLOCH_USE_TINY_ASR=false
+- FULLOCH_USE_TINY_TTS=false
+- FULLOCH_VOICE_CLONE=cori
+- FULLOCH_HOST=0.0.0.0
+- FULLOCH_PORT=8000
+- FULLOCH_API_KEY=
+- FULLOCH_CHAT_MODEL=fulloch-qwen3-slm
+- FULLOCH_STT_MODEL=qwen3-asr-1.7b
+- FULLOCH_TTS_MODEL=qwen3-tts-1.7b
 
-search:
-  searxng_url: "http://192.168.50.153:30053"
+6) Web Search Setup
+-------------------
+External SearXNG:
+- ENABLE_SEARCH_WEB=true
+- SEARCH_SEARXNG_URL=http://192.168.50.153:30053
 
-Optional .env for OpenRouter web-answer synthesis:
+Optional OpenRouter for web-answer synthesis:
 - OPENROUTER_WEB_SEARCH_ENABLED=true
-- OPENROUTER_API_KEY=<your_openrouter_api_key>
-- OPENROUTER_MODEL=<openrouter_model_id>
+- OPENROUTER_API_KEY=<your_key>
+- OPENROUTER_MODEL=<model_id>
 - OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
 
-Behavior:
-- If OpenRouter vars are set and enabled, web-search answers use OpenRouter output.
-- If not enabled, Fulloch falls back to local handling with retrieved web snippets.
-
-6) Home Assistant Voice Setup
+7) Home Assistant Voice Setup
 -----------------------------
-Use Fulloch as an OpenAI-compatible backend.
-
 Base URL:
 - http://<fulloch-host>:8000/v1
 
@@ -104,35 +87,31 @@ Endpoints:
 - STT: /audio/transcriptions
 - TTS: /audio/speech
 
-Model IDs from config.yml (api section):
-- chat_model
-- stt_model
-- tts_model
+If API auth enabled:
+- Use FULLOCH_API_KEY as Bearer token in HA
 
-If api.api_key is set:
-- Configure Bearer token in Home Assistant provider settings
+Optional Home Assistant tool integration:
+- ENABLE_HOME_ASSISTANT=true
+- HOME_ASSISTANT_URL=http://<ha-host>:8123
+- HOME_ASSISTANT_TOKEN=<ha_long_lived_token>
+- HOME_ASSISTANT_ENTITY_ALIASES={"living room lights":"light.living_room"}
 
-7) Fulloch Config Minimum
--------------------------
-In data/config.yml:
+8) Optional Tool Flags
+----------------------
+Enable integrations as needed:
+- ENABLE_SPOTIFY
+- ENABLE_PHILIPS_HUE
+- ENABLE_GOOGLE_CALENDAR
+- ENABLE_AIRTOUCH
+- ENABLE_THINQ
+- ENABLE_WEBOS
+- ENABLE_PIONEER_AVR
 
-general:
-  use_ai: true
-  use_tiny_asr: false
-  use_tiny_tts: false
-  voice_clone: "cori"
+See .env.example for the full variable list.
 
-api:
-  host: "0.0.0.0"
-  port: 8000
-  api_key: ""
-  chat_model: "fulloch-qwen3-slm"
-  stt_model: "qwen3-asr-1.7b"
-  tts_model: "qwen3-tts-1.7b"
-
-8) Troubleshooting
+9) Troubleshooting
 ------------------
-- If image pull fails: check package visibility or docker login to ghcr.io
-- If no responses: check model files in ./data/models
-- If HA cannot connect: verify port mapping and firewall
-- If auth fails: verify Bearer token matches FULLOCH_API_KEY/api.api_key
+- Pull issues: check GHCR visibility/login
+- No web answers: verify SEARCH_SEARXNG_URL reachability
+- OpenRouter not used: check OPENROUTER_WEB_SEARCH_ENABLED/API key/model
+- HA connection issues: verify host, port, firewall, and bearer token
